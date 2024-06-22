@@ -1,5 +1,5 @@
 # Build step
-FROM golang:1.18 AS builder
+FROM golang:1.22 AS builder
 RUN mkdir -p /build
 WORKDIR /build
 COPY . .
