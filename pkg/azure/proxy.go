@@ -108,6 +108,8 @@ func makeDirector(remote *url.URL) func(*http.Request) {
             req.URL.Path = path.Join(fmt.Sprintf("/openai/deployments/%s", deployment), "fine-tunes")
         case strings.HasPrefix(req.URL.Path, "/v1/files"):
             req.URL.Path = path.Join(fmt.Sprintf("/openai/deployments/%s", deployment), "files")
+		case strings.HasPrefix(req.URL.Path, "/v1/audio/speech"):
+            req.URL.Path = path.Join(fmt.Sprintf("/openai/deployments/%s", deployment), "audio/speech")
         case strings.HasPrefix(req.URL.Path, "/v1/audio/transcriptions"):
             req.URL.Path = path.Join(fmt.Sprintf("/openai/deployments/%s", deployment), "transcriptions")
         case strings.HasPrefix(req.URL.Path, "/v1/audio/translations"):
@@ -145,6 +147,22 @@ func handleToken(req *http.Request) {
     }
     req.Header.Set("api-key", token)
     req.Header.Del("Authorization")
+}
+
+func HandleToken(req *http.Request) {
+    token := ""
+    if AzureOpenAIToken != "" {
+        token = AzureOpenAIToken
+    } else if authHeader := req.Header.Get("Authorization"); authHeader != "" {
+        token = strings.TrimPrefix(authHeader, "Bearer ")
+    } else if apiKey := os.Getenv("AZURE_OPENAI_API_KEY"); apiKey != "" {
+        token = apiKey
+    }
+
+    if token != "" {
+        req.Header.Set("api-key", token)
+        req.Header.Del("Authorization")
+    }
 }
 
 func modifyResponse(res *http.Response) error {

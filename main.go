@@ -1,9 +1,12 @@
 package main
 
 import (
+    "encoding/json"
+    "fmt"
+    "github.com/gin-gonic/gin"
     "github.com/gyarbij/azure-oai-proxy/pkg/azure"
     "github.com/gyarbij/azure-oai-proxy/pkg/openai"
-    "github.com/gin-gonic/gin"
+    "io"
     "log"
     "net/http"
     "os"
@@ -13,6 +16,36 @@ var (
     Address   = "0.0.0.0:11437"
     ProxyMode = "azure"
 )
+
+// Define the ModelList and Model types based on the API documentation
+type ModelList struct {
+    Object string  `json:"object"`
+    Data   []Model `json:"data"`
+}
+
+type Model struct {
+    ID              string       `json:"id"`
+    Object          string       `json:"object"`
+    CreatedAt       int64        `json:"created_at"`
+    Capabilities    Capabilities `json:"capabilities"`
+    LifecycleStatus string       `json:"lifecycle_status"`
+    Status          string       `json:"status"`
+    Deprecation     Deprecation  `json:"deprecation"`
+    FineTune        string       `json:"fine_tune,omitempty"`
+}
+
+type Capabilities struct {
+    FineTune       bool `json:"fine_tune"`
+    Inference      bool `json:"inference"`
+    Completion     bool `json:"completion"`
+    ChatCompletion bool `json:"chat_completion"`
+    Embeddings     bool `json:"embeddings"`
+}
+
+type Deprecation struct {
+    FineTune  int64 `json:"fine_tune,omitempty"`
+    Inference int64 `json:"inference"`
+}
 
 func init() {
     gin.SetMode(gin.ReleaseMode)
@@ -35,11 +68,13 @@ func main() {
         router.POST("/v1/chat/completions", handleAzureProxy)
         router.POST("/v1/completions", handleAzureProxy)
         router.POST("/v1/embeddings", handleAzureProxy)
-        // New DALL-E routes
+        // DALL-E routes
         router.POST("/v1/images/generations", handleAzureProxy)
-		// Whisper speech-to-text
-		router.POST("/v1/audio/transcriptions", handleAzureProxy)
-		router.POST("/v1/audio/translations", handleAzureProxy)
+        // speech- routes
+        router.POST("/v1/audio/speech", handleAzureProxy)
+        router.GET("/v1/audio/voices", handleAzureProxy)
+        router.POST("/v1/audio/transcriptions", handleAzureProxy)
+        router.POST("/v1/audio/translations", handleAzureProxy)
         // Fine-tuning routes
         router.POST("/v1/fine_tunes", handleAzureProxy)
         router.GET("/v1/fine_tunes", handleAzureProxy)
@@ -55,6 +90,7 @@ func main() {
         // Deployments management routes
         router.GET("/deployments", handleAzureProxy)
         router.GET("/deployments/:deployment_id", handleAzureProxy)
+        router.GET("/v1/models/:model_id/capabilities", handleAzureProxy)
     } else {
         router.Any("*path", handleOpenAIProxy)
     }
@@ -63,51 +99,64 @@ func main() {
 }
 
 func handleGetModels(c *gin.Context) {
-	models := []string{
-		"gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-4o-2024-05-13", "gpt-4-turbo-2024-04-09", "gpt-4-0613", "gpt-4-1106-preview", "gpt-4-0125-preview", "gpt-4-vision-preview", "gpt-4-32k-0613",
-		"gpt-35-turbo-0301", "gpt-35-turbo-0613", "gpt-35-turbo-1106", "gpt-35-turbo-0125", "gpt-35-turbo-16k",
-		"text-embedding-3-large", "text-embedding-3-small", "text-embedding-ada-002",
-		"dall-e-2", "dall-e-3",
-		"babbage-002", "davinci-002", "whisper-001",
-	}
-	result := azure.ListModelResponse{
-		Object: "list",
-	}
-	for _, model := range models {
-		result.Data = append(result.Data, azure.Model{
-			ID:      model,
-			Object:  "model",
-			Created: 1677649963,
-			OwnedBy: "openai",
-			Permission: []azure.ModelPermission{
-				{
-					ID:                 "",
-					Object:             "model",
-					Created:            1679602087,
-					AllowCreateEngine:  true,
-					AllowSampling:      true,
-					AllowLogprobs:      true,
-					AllowSearchIndices: true,
-					AllowView:          true,
-					AllowFineTuning:    true,
-					Organization:       "*",
-					Group:              nil,
-					IsBlocking:         false,
-				},
-			},
-			Root:   model,
-			Parent: nil,
-		})
-	}
-	c.JSON(200, result)
+    req, _ := http.NewRequest("GET", c.Request.URL.String(), nil)
+    req.Header.Set("Authorization", c.GetHeader("Authorization"))
+
+    models, err := fetchDeployedModels(req)
+    if err != nil {
+        log.Printf("error fetching deployed models: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch deployed models"})
+        return
+    }
+    result := ModelList{
+        Object: "list",
+        Data:   models,
+    }
+    c.JSON(http.StatusOK, result)
+}
+
+func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
+    endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
+    if endpoint == "" {
+        endpoint = azure.AzureOpenAIEndpoint
+    }
+
+    url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
+
+    azure.HandleToken(req)
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        body, _ := io.ReadAll(resp.Body)
+        return nil, fmt.Errorf("failed to fetch deployed models: %s", string(body))
+    }
+
+    var deployedModelsResponse ModelList
+    if err := json.NewDecoder(resp.Body).Decode(&deployedModelsResponse); err != nil {
+        return nil, err
+    }
+
+    return deployedModelsResponse.Data, nil
 }
 
 func handleOptions(c *gin.Context) {
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-	c.Status(200)
-	return
+    c.Header("Access-Control-Allow-Origin", "*")
+    c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+    c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    c.Status(200)
+    return
 }
 
 func handleAzureProxy(c *gin.Context) {
@@ -132,6 +181,6 @@ func handleAzureProxy(c *gin.Context) {
 }
 
 func handleOpenAIProxy(c *gin.Context) {
-	server := openai.NewOpenAIReverseProxy()
-	server.ServeHTTP(c.Writer, c.Request)
+    server := openai.NewOpenAIReverseProxy()
+    server.ServeHTTP(c.Writer, c.Request)
 }
