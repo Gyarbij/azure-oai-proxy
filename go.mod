@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/gin-gonic/gin v1.9.0
-	github.com/tidwall/gjson v1.14.4
+	github.com/tidwall/gjson v1.17.1
 )
 
 require (
