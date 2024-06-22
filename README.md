@@ -47,7 +47,7 @@ Environment Variables
 
 | Parameters                 | Description                                                                                                                                                                                                                                                                                                    | Default Value                                                           |
 | :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-| AZURE_OPENAI_PROXY_ADDRESS | Service listening address                                                                                                                                                                                                                                                                                      | 0.0.0.0:8080                                                            |
+| AZURE_OPENAI_PROXY_ADDRESS | Service listening address                                                                                                                                                                                                                                                                                      | 0.0.0.0:11437                                                            |
 | AZURE_OPENAI_PROXY_MODE    | Proxy mode, can be either "azure" or "openai".                                                                                                                                                                                                                                                                 | azure                                                                   |
 | AZURE_OPENAI_ENDPOINT      | Azure OpenAI Endpoint, usually looks like https://{custom}.openai.azure.com. Required.                                                                                                                                                                                                                         |                                                                         |
 | AZURE_OPENAI_APIVERSION    | Azure OpenAI API version. Default is 2023-03-15-preview.                                                                                                                                                                                                                                                       | 2023-03-15-preview                                                      |
@@ -96,7 +96,7 @@ Deploying through Docker
 
 ```shell
 docker pull ishadows/azure-openai-proxy:latest
-docker run -d -p 8080:8080 --name=azure-openai-proxy \
+docker run -d -p 11437:11437 --name=azure-openai-proxy \
   --env AZURE_OPENAI_ENDPOINT={your azure endpoint} \
   --env AZURE_OPENAI_MODEL_MAPPER={your custom model mapper ,like: gpt-3.5-turbo=gpt-35-turbo,gpt-3.5-turbo-0301=gpt-35-turbo-0301} \
   ishadows/azure-openai-proxy:latest
@@ -105,7 +105,7 @@ docker run -d -p 8080:8080 --name=azure-openai-proxy \
 Calling
 
 ```shell
-curl https://localhost:8080/v1/chat/completions \
+curl https://localhost:11437/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {your azure api key}" \
   -d '{

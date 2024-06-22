@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/diemus/azure-openai-proxy/pkg/azure"
-	"github.com/diemus/azure-openai-proxy/pkg/openai"
+	"github.com/gyarbij/azure-oai-proxy/pkg/azure"
+	"github.com/gyarbij/azure-oai-proxy/pkg/openai"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Address   = "0.0.0.0:8080"
+	Address   = "0.0.0.0:11437"
 	ProxyMode = "azure"
 )
 
@@ -44,8 +44,7 @@ func main() {
 }
 
 func handleGetModels(c *gin.Context) {
-	// BUGFIX: fix options request, see https://github.com/diemus/azure-openai-proxy/issues/3
-	models := []string{"gpt-4", "gpt-4-0314", "gpt-4-32k", "gpt-4-32k-0314", "gpt-3.5-turbo", "gpt-3.5-turbo-0301", "text-davinci-003", "text-embedding-ada-002"}
+	models := []string{"gpt-4o", "gpt-4", "gpt-4-32k", "gpt-4-vision-preview", "gpt-3.5-turbo", "gpt-4-turbo", "dall-e-3", "text-embedding-ada-002"}
 	result := azure.ListModelResponse{
 		Object: "list",
 	}
@@ -79,7 +78,6 @@ func handleGetModels(c *gin.Context) {
 }
 
 func handleOptions(c *gin.Context) {
-	// BUGFIX: fix options request, see https://github.com/diemus/azure-openai-proxy/issues/1
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -88,7 +86,6 @@ func handleOptions(c *gin.Context) {
 }
 
 func handleAzureProxy(c *gin.Context) {
-	// BUGFIX: fix options request, see https://github.com/diemus/azure-openai-proxy/issues/1
 	if c.Request.Method == http.MethodOptions {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -99,9 +96,6 @@ func handleAzureProxy(c *gin.Context) {
 
 	server := azure.NewOpenAIReverseProxy()
 	server.ServeHTTP(c.Writer, c.Request)
-	//BUGFIX: try to fix the difference between azure and openai
-	//Azure's response is missing a \n at the end of the stream
-	//see https://github.com/Chanzhaoyu/chatgpt-web/issues/831
 	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
 		if _, err := c.Writer.Write([]byte("\n")); err != nil {
 			log.Printf("rewrite azure response error: %v", err)
