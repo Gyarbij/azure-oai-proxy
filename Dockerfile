@@ -1,17 +1,9 @@
-# Build step
 FROM golang:1.22.4 AS builder
-RUN mkdir -p /build
 WORKDIR /build
 COPY . .
-RUN go build
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o azure-oai-proxy .
 
-# Final step
-FROM debian:bookworm-slim
-RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ca-certificates && \
-    rm -rf /var/lib/apt/lists/* \
-
+FROM gcr.io/distroless/base-debian12
+COPY --from=builder /build/azure-oai-proxy /
 EXPOSE 11437
-WORKDIR /app
-COPY --from=builder /build/azure-oai-proxy /app/azure-oai-proxy
-ENTRYPOINT ["/app/azure-oai-proxy"]
+ENTRYPOINT ["/azure-oai-proxy"]
