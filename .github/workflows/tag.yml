@@ -1,0 +1,35 @@
+name: Auto Tag
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get branch name
+        id: get_branch_name
+        run: echo "BRANCH_NAME=$(git symbolic-ref --short HEAD)" >> $GITHUB_ENV
+
+      - name: Extract version from branch name
+        id: extract_version
+        run: |
+          if [[ "${{ env.BRANCH_NAME }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION=${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=" >> $GITHUB_ENV
+          fi
+
+      - name: Create and push tag
+        if: env.VERSION != ''
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git tag ${{ env.VERSION }}
+          git push origin ${{ env.VERSION }}

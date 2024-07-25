@@ -5,25 +5,43 @@ type ListModelResponse struct {
 	Data   []Model `json:"data"`
 }
 
+// AzureConfig represents the configuration for Azure OpenAI
+type AzureConfig struct {
+	APIVersion             string `json:"api_version"`
+	Endpoint               string `json:"endpoint"`
+	Token                  string `json:"token"`
+	ModelMapperMode        string `json:"model_mapper_mode"`
+	AIStudioDeploymentsRaw string `json:"ai_studio_deployments_raw"`
+}
+
+// AzureAIStudioDeployment represents a deployment in Azure AI Studio
+type AzureAIStudioDeployment struct {
+	ModelName      string `json:"model_name"`
+	DeploymentName string `json:"deployment_name"`
+	Region         string `json:"region"`
+}
+
+// Update Model struct to include new fields if necessary
 type Model struct {
-    ID              string       `json:"id"`
-    Object          string       `json:"object"`
-    CreatedAt       int64        `json:"created_at"`
-    Capabilities    Capabilities `json:"capabilities"`
-    LifecycleStatus string       `json:"lifecycle_status"`
-    Status          string       `json:"status"`
-    Deprecation     Deprecation  `json:"deprecation,omitempty"`
-    FineTune        string       `json:"fine_tune,omitempty"`
-	Created    int               `json:"created"`
-	OwnedBy    string            `json:"owned_by"`
-	Permission []ModelPermission `json:"permission"`
-	Root       string            `json:"root"`
-	Parent     any               `json:"parent"`
+	ID              string            `json:"id"`
+	Object          string            `json:"object"`
+	CreatedAt       int64             `json:"created_at"`
+	Capabilities    Capabilities      `json:"capabilities"`
+	LifecycleStatus string            `json:"lifecycle_status"`
+	Status          string            `json:"status"`
+	Deprecation     Deprecation       `json:"deprecation,omitempty"`
+	FineTune        string            `json:"fine_tune,omitempty"`
+	Created         int               `json:"created"`
+	OwnedBy         string            `json:"owned_by"`
+	Permission      []ModelPermission `json:"permission"`
+	Root            string            `json:"root"`
+	Parent          any               `json:"parent"`
+	// Add any new fields from the latest Azure OpenAI API here
 }
 
 type ModelList struct {
-    Object string  `json:"object"`
-    Data   []Model `json:"data"`
+	Object string  `json:"object"`
+	Data   []Model `json:"data"`
 }
 
 type ModelPermission struct {
@@ -59,10 +77,10 @@ type ListDeployedModelsResponse struct {
 
 // JSONModeRequest represents a request with JSON mode enabled
 type JSONModeRequest struct {
-	Model         string          `json:"model"`
-	Messages      []ChatMessage   `json:"messages"`
-	Temperature   float64         `json:"temperature,omitempty"`
-	MaxTokens     int             `json:"max_tokens,omitempty"`
+	Model          string          `json:"model"`
+	Messages       []ChatMessage   `json:"messages"`
+	Temperature    float64         `json:"temperature,omitempty"`
+	MaxTokens      int             `json:"max_tokens,omitempty"`
 	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
 }
 
@@ -79,12 +97,12 @@ type ChatMessage struct {
 
 // JSONModeResponse represents a response when JSON mode is enabled
 type JSONModeResponse struct {
-	ID      string      `json:"id"`
-	Object  string      `json:"object"`
-	Created int64       `json:"created"`
-	Model   string      `json:"model"`
+	ID      string       `json:"id"`
+	Object  string       `json:"object"`
+	Created int64        `json:"created"`
+	Model   string       `json:"model"`
 	Choices []JSONChoice `json:"choices"`
-	Usage   Usage       `json:"usage"`
+	Usage   Usage        `json:"usage"`
 }
 
 // JSONChoice represents a choice in the JSON mode response
@@ -109,15 +127,15 @@ type DeploymentCapability struct {
 
 // DeploymentDetails represents detailed information about a deployment
 type DeploymentDetails struct {
-	ID                 string                 `json:"id"`
-	ModelID            string                 `json:"model"`
-	OwnerID            string                 `json:"owner"`
-	Status             string                 `json:"status"`
-	CreatedAt          string                 `json:"created_at"`
-	UpdatedAt          string                 `json:"updated_at"`
-	Capabilities       []DeploymentCapability `json:"capabilities"`
-	ScaleSettings      ScaleSettings          `json:"scale_settings"`
-	RaiPolicy          string                 `json:"rai_policy"`
+	ID            string                 `json:"id"`
+	ModelID       string                 `json:"model"`
+	OwnerID       string                 `json:"owner"`
+	Status        string                 `json:"status"`
+	CreatedAt     string                 `json:"created_at"`
+	UpdatedAt     string                 `json:"updated_at"`
+	Capabilities  []DeploymentCapability `json:"capabilities"`
+	ScaleSettings ScaleSettings          `json:"scale_settings"`
+	RaiPolicy     string                 `json:"rai_policy"`
 }
 
 // ScaleSettings represents the scale settings for a deployment
@@ -165,8 +183,8 @@ type ImageGenerationRequest struct {
 
 // ImageGenerationResponse represents the response structure from image generation
 type ImageGenerationResponse struct {
-	Created int64         `json:"created"`
-	Data    []ImageData   `json:"data"`
+	Created int64       `json:"created"`
+	Data    []ImageData `json:"data"`
 }
 
 // ImageData represents data of a generated image
@@ -176,8 +194,8 @@ type ImageData struct {
 
 // AudioTranscriptionRequest represents the request structure for audio transcription
 type AudioTranscriptionRequest struct {
-	Model   string `json:"model"`
-	Audio   []byte `json:"audio"`
+	Model    string `json:"model"`
+	Audio    []byte `json:"audio"`
 	Language string `json:"language,omitempty"`
 }
 
@@ -186,15 +204,19 @@ type AudioTranscriptionResponse struct {
 	Text string `json:"text"`
 }
 
+// Update if there are any changes to the capabilities
 type Capabilities struct {
-    ChatCompletion bool `json:"chat_completion"`
-    Completion     bool `json:"completion"`
-    Embeddings     bool `json:"embeddings"`
-    FineTune       bool `json:"fine_tune"`
-    Inference      bool `json:"inference"`
+	ChatCompletion bool `json:"chat_completion"`
+	Completion     bool `json:"completion"`
+	Embeddings     bool `json:"embeddings"`
+	FineTune       bool `json:"fine_tune"`
+	Inference      bool `json:"inference"`
+	// Add any new capabilities here
 }
 
+// Update if there are any changes to the deprecation structure
 type Deprecation struct {
-    FineTune  int `json:"fine_tune,omitempty"`
-    Inference int `json:"inference,omitempty"`
+	FineTune  int `json:"fine_tune,omitempty"`
+	Inference int `json:"inference,omitempty"`
+	// Add any new deprecation fields here
 }

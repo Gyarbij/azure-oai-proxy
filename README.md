@@ -1,24 +1,24 @@
 # Azure OpenAI Proxy
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/Gyarbij/azure-oai-proxy)](https://goreportcard.com/report/github.com/Gyarbij/azure-oai-proxy)
-[![License](https://badgen.net/badge/license/MIT/cyan)](https://github.com/gyarbij/azure-oai-proxy/blob/main/LICENSE)
-[![Release](https://badgen.net/github/release/gyarbij/azure-oai-proxy/latest)](https://github.com/gyarbij/azure-oai-proxy)
-[![Azure](https://badgen.net/badge/icon/Azure?icon=azure&label)](https://github.com/gyarbij/azure-oai-proxy)
-[![Azure](https://badgen.net/badge/icon/OpenAI?icon=azure&label)](https://github.com/gyarbij/azure-oai-proxy)
-[![Azure](https://badgen.net/badge/icon/docker?icon=docker&label)](https://github.com/gyarbij/azure-oai-proxy)
+[![Main v Dev Commits](https://shields.git.vg/github/commits-difference/Gyarbij/azure-oai-proxy?base=main&head=dev)](https://github.com/gyarbij/azure-oai-proxy)
+[![Taal](https://shields.git.vg/github/languages/top/Gyarbij/azure-oai-proxy)](https://github.com/gyarbij/azure-oai-proxy)
+[![GHCR Build](https://shields.git.vg/github/actions/workflow/status/gyarbij/azure-oai-proxy/ghcr-docker-publish.yml)](https://github.com/gyarbij/azure-oai-proxy)
+[![License](https://shields.git.vg/github/license/Gyarbij/azure-oai-proxy?style=for-the-badge&color=blue)](https://github.com/gyarbij/azure-oai-proxy/blob/main/LICENSE)
 
 ## Introduction
 
-Azure OAI Proxy is a lightweight, high-performance proxy server that enables seamless integration between Azure OpenAI Services and applications designed for only OpenAI API compatible endpoints. This project bridges the gap for tools and services that are built to work with OpenAI's API structure but need to utilize Azure's OpenAI.
+Azure OAI Proxy is a lightweight, high-performance proxy server that enables seamless integration between Azure OpenAI Services and applications designed for OpenAI API only compatible endpoints. This project bridges the gap for tools and services that are built to work with OpenAI's API structure but need to utilize Azure's OpenAI.
 
 ## Key Features
 
 - ✅ **API Compatibility**: Translates requests from OpenAI API format to Azure OpenAI Services format on-the-fly.
 - 🗺️ **Model Mapping**: Automatically maps OpenAI model names to Azure scheme.
-- 🔄 **Dynamic Model List**: Fetches available models directly from your Azure OpenAI deployment to have feature parity with normal OpenAI, in projects such as Open WebUI.
+- 🔄 **Dynamic Model List**: Fetches available models directly from your Azure OpenAI deployment.
 - 🌐 **Support for Multiple Endpoints**: Handles various API endpoints including image, speech, completions, chat completions, embeddings, and more.
 - 🚦 **Error Handling**: Provides meaningful error messages and logging for easier debugging.
-- ⚙️ **Configurable**: Easy to set up with environment variables for Azure OpenAI endpoint and API key.
+- ⚙️ **Configurable**: Easy to set up with environment variables for Azure AI/Azure OAI endpoint and API keys.
+- 🔐 **Serverless Deployment Support**: Supports Azure AI serverless deployments with custom authentication.
 
 ## Use Cases
 
@@ -30,7 +30,9 @@ This proxy is particularly useful for:
 
 ## Important Note
 
-While this proxy serves as a convenient bridge, it's recommended to use the official Azure OpenAI SDK or API directly in production environments or when building new services. Direct integration offers:
+While azure oai proxy serves as a convenient bridge, it's recommended to use the official Azure OpenAI SDK or API directly in production environments or when building new services. 
+
+Direct integration offers:
 
 - Better performance
 - More reliable and up-to-date feature support
@@ -43,110 +45,177 @@ Also, I strongly recommend using TSL/SSL for secure communication between the pr
 
 ## Supported APIs
 
-The latest version of the Azure OpenAI service now supports the following APIs:
+The latest version of the Azure OpenAI service supports the following APIs:
 
-| Path                  | Status |
-| --------------------- | ------ |
-| /v1/chat/completions  |  ✅   |
-| /v1/completions       | ✅    |
-| /v1/embeddings        | ✅    |
-| /v1/images/generations | ✅   |
-| /v1/fine_tunes        | ✅    |
-| /v1/files             | ✅    |
-| /v1/models            | ✅    |
-| /deployments          | ✅    |
-| /v1/audio             | ✅    |
-
-> Other APIs not supported by Azure will be returned in a mock format (such as OPTIONS requests initiated by browsers). If you find your project need additional OpenAI-supported APIs, feel free to submit a PR.
-
-## Getting Started
-
-It's easy to get started with Azure OAI Proxy. You can either deploy it as a reverse proxy or use it as a forward proxy as detailed below. However if you're ready to jump right in and start using the proxy, you can use the following Docker command:
-
-```docker
-docker pull gyarbij/azure-oai-proxy:latest
-
-docker run -d -p 11437:11437 --name=azure-oai-proxy \
-  --env AZURE_OPENAI_ENDPOINT=https://{YOURENDPOINT}.openai.azure.com \
-  gyarbij/azure-oai-proxy:latest
-```
+| Path                           | Status |
+|--------------------------------|--------|
+| /v1/chat/completions           | ✅     |
+| /v1/completions                | ✅     |
+| /v1/embeddings                 | ✅     |
+| /v1/images/generations         | ✅     |
+| /v1/fine_tunes                 | ✅     |
+| /v1/files                      | ✅     |
+| /v1/models                     | ✅     |
+| /deployments                   | ✅     |
+| /v1/audio/speech               | ✅     |
+| /v1/audio/transcriptions       | ✅     |
+| /v1/audio/translations         | ✅     |
+| /v1/models/:model_id/capabilities | ✅     |
 
 ## Configuration
 
-### 1. Used as reverse proxy (i.e. an OpenAI API gateway)
+### Environment Variables
 
-Environment Variables
+| Parameter                     | Description                                                                | Default Value        | Required |
+|-------------------------------|----------------------------------------------------------------------------|----------------------|----------|
+| AZURE_OPENAI_ENDPOINT         | Azure OpenAI Endpoint                                                      |                      | Yes      |
+| AZURE_OPENAI_PROXY_ADDRESS    | Service listening address                                                  | 0.0.0.0:11437        | No       |
+| AZURE_OPENAI_PROXY_MODE       | Proxy mode, can be either "azure" or "openai"                              | azure                | No       |
+| AZURE_OPENAI_APIVERSION       | Azure OpenAI API version                                                   | 2024-06-01           | No       |
+| AZURE_OPENAI_MODEL_MAPPER     | Comma-separated list of model=deployment pairs                             |                      | No       |
+| AZURE_AI_STUDIO_DEPLOYMENTS   | Comma-separated list of serverless deployments                             |                      | No       |
+| AZURE_OPENAI_KEY_*            | API keys for serverless deployments (replace * with uppercase model name)  |                      | No       |
 
-| Parameters                 | Description                                                                                                                                                                                                                                                                                                    | Default Value                                                           |
-| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-| AZURE_OPENAI_PROXY_ADDRESS | Service listening address                                                                                                                                                                                                                                                                                      | 0.0.0.0:11437                                                            |
-| AZURE_OPENAI_PROXY_MODE    | Proxy mode, can be either "azure" or "openai".                                                                                                                                                                                                                                                                 | azure                                                                   |
-| AZURE_OPENAI_ENDPOINT      | Azure OpenAI Endpoint, usually looks like https://{custom}.openai.azure.com. Required.                                                                                                                                                                                                                         |                                                                         |
-| AZURE_OPENAI_APIVERSION    | Azure OpenAI API version. Default is 2024-05-01-preview.                                                                                                                                                                                                                                                       | 2024-05-01-preview                                                      |
-| AZURE_OPENAI_MODEL_MAPPER (DEPRECATED)  | A comma-separated list of model=deployment pairs. Maps model names to deployment names. For example, `gpt-3.5-turbo=gpt-35-turbo`, `gpt-3.5-turbo-0301=gpt-35-turbo-0301`. If there is no match, the proxy will pass model as deployment name directly (in fact, most Azure model names are same with OpenAI). | `gpt-3.5-turbo=gpt-35-turbo`<br/>`gpt-3.5-turbo-0301=gpt-35-turbo-0301` |
-| AZURE_OPENAI_TOKEN         | Azure OpenAI API Token. If this environment variable is set, the token in the request header will be ignored.                                                                                                                                                                                                  | ""                                                                      |
+## Usage
 
-Use in command line
+### Docker Compose
 
-```shell
-curl https://{your-custom-domain}/v1/chat/completions \
+Here's an example `docker-compose.yml` file with all possible environment variable options:
+
+```yaml
+services:
+  azure-oai-proxy:
+    image: 'gyarbij/azure-oai-proxy:latest'
+    # container_name: azure-oai-proxy
+    # Alternatively, use GitHub Container Registry:
+    # image: 'ghcr.io/gyarbij/azure-oai-proxy:latest'
+    restart: always
+    environment:
+      - AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+    # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
+    # - AZURE_OPENAI_PROXY_MODE=azure
+    # - AZURE_OPENAI_APIVERSION=2024-06-01
+    # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
+    # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,llama-3.1-70B=Llama-31-70B:swedencentral
+    # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
+    # - AZURE_OPENAI_KEY_LLAMA-3.1-8B=your-api-key-2
+    # - AZURE_OPENAI_KEY_LLAMA-3.1-70B=your-api-key-3
+    ports:
+      - '11437:11437'
+    # Uncomment the following line to use an .env file:
+    # env_file: .env
+```
+
+To use this configuration:
+
+1. Save the above content in a file named `compose.yaml`.
+2. Replace the placeholder values (e.g., `your-endpoint`, `your-api-key-1`, etc.) with your actual Azure OpenAI configuration.
+3. Run the following command in the same directory as your `compose.yaml` file:
+
+```sh
+docker compose up -d
+```
+
+### Using an .env File
+
+To use an .env file instead of environment variables in the Docker Compose file:
+
+1. Create a file named `.env` in the same directory as your `docker-compose.yml`.
+2. Add your environment variables to the `.env` file, one per line:
+
+```
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+AZURE_OPENAI_APIVERSION=2024-06-01
+AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus
+AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
+AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
+```
+
+3. Uncomment the `env_file: .env` line in your `docker-compose.yml`.
+4. Run `docker-compose up -d` to start the container with the environment variables from the .env file.
+
+### Running from GitHub Container Registry
+
+To run the Azure OAI Proxy using the image from GitHub Container Registry:
+
+```sh
+docker run -d -p 11437:11437 \
+  -e AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/ \
+  -e AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral \
+  -e AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key \
+  ghcr.io/gyarbij/azure-oai-proxy:latest
+```
+
+Replace the placeholder values with your actual Azure OpenAI configuration.
+
+## Usage Examples
+
+### Calling the API
+
+Once the proxy is running, you can call it using the OpenAI API format:
+
+```sh
+curl http://localhost:11437/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {your azure api key}" \
+  -H "Authorization: Bearer your-azure-api-key" \
   -d '{
     "model": "gpt-3.5-turbo",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
 
-### 2. Used as forward proxy (i.e. an HTTP proxy)
+For serverless deployments, use the model name as defined in your `AZURE_AI_STUDIO_DEPLOYMENTS` configuration.
 
-When accessing Azure OpenAI API through HTTP, it can be used directly as a proxy, but this tool does not have built-in HTTPS support, so you need an HTTPS proxy such as Nginx to support accessing HTTPS version of OpenAI API.
+## Model Mapping Mechanism (Used for Custom deployment names)
 
-Assuming that the proxy domain you configured is `https://{your-domain}.com`, you can execute the following commands in the terminal to use the https proxy:
+These are the default mappings for the most common models, if your Azure OpenAI deployment uses different names, you can set the `AZURE_OPENAI_MODEL_MAPPER` environment variable to define custom mappings.:
 
-```shell
-export https_proxy=https://{your-domain}.com
+| OpenAI Model                    | Azure OpenAI Model            |
+|---------------------------------|-------------------------------|
+| `"gpt-3.5-turbo"`               | `"gpt-35-turbo"`              |
+| `"gpt-3.5-turbo-0125"`          | `"gpt-35-turbo-0125"`         |
+| `"gpt-3.5-turbo-0613"`          | `"gpt-35-turbo-0613"`         |
+| `"gpt-3.5-turbo-1106"`          | `"gpt-35-turbo-1106"`         |
+| `"gpt-3.5-turbo-16k-0613"`      | `"gpt-35-turbo-16k-0613"`     |
+| `"gpt-3.5-turbo-instruct-0914"` | `"gpt-35-turbo-instruct-0914"`|
+| `"gpt-4"`                       | `"gpt-4-0613"`                |
+| `"gpt-4-32k"`                   | `"gpt-4-32k"`                 |
+| `"gpt-4-32k-0613"`              | `"gpt-4-32k-0613"`            |
+| `"gpt-4o-mini"`                 | `"gpt-4o-mini-2024-07-18"`    |
+| `"gpt-4o"`                      | `"gpt-4o"`                    |
+| `"gpt-4o-2024-05-13"`           | `"gpt-4o-2024-05-13"`         |
+| `"gpt-4-turbo"`                 | `"gpt-4-turbo"`               |
+| `"gpt-4-vision-preview"`        | `"gpt-4-vision-preview"`      |
+| `"gpt-4-turbo-2024-04-09"`      | `"gpt-4-turbo-2024-04-09"`    |
+| `"gpt-4-1106-preview"`          | `"gpt-4-1106-preview"`        |
+| `"text-embedding-ada-002"`      | `"text-embedding-ada-002"`    |
+| `"dall-e-2"`                    | `"dall-e-2"`                  |
+| `"dall-e-3"`                    | `"dall-e-3"`                  |
+| `"babbage-002"`                 | `"babbage-002"`               |
+| `"davinci-002"`                 | `"davinci-002"`               |
+| `"whisper-1"`                   | `"whisper"`                   |
+| `"tts-1"`                       | `"tts"`                       |
+| `"tts-1-hd"`                    | `"tts-hd"`                    |
+| `"text-embedding-3-small"`      | `"text-embedding-3-small-1"`  |
+| `"text-embedding-3-large"`      | `"text-embedding-3-large-1"`  |
 
-curl https://api.openai.com/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {your azure api key}" \
-  -d '{
-    "model": "gpt-3.5-turbo",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
+For custom fine-tuned models, the model name can be passed directly. For models with deployment names different from the model names, custom mapping relationships can be defined, such as:
 
-Or configure it as an HTTP proxy in other open source Web ChatGPT projects:
+| Model Name         | Deployment Name              |
+| :----------------- | :--------------------------- |
+| gpt-3.5-turbo      | gpt-35-turbo-upgrade         |
+| gpt-3.5-turbo-0301 | gpt-35-turbo-0301-fine-tuned |
 
-```
-export HTTPS_PROXY=https://{your-domain}.com
-```
+## Important Notes
 
-## Deploy
-
-Deploying through Docker
-
-```shell
-docker pull gyarbij/azure-oai-proxy:latest
-docker run -p 11437:11437 --name=azure-oai-proxy \
-  --env AZURE_OPENAI_ENDPOINT=https://{YOURENDPOINT}.openai.azure.com/ \
-  gyarbij/azure-oai-proxy:latest
-```
-
-Calling
-
-```shell
-curl https://localhost:11437/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {your azure api key}" \
-  -d '{
-    "model": "gpt-3.5-turbo",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
+- Always use HTTPS in production environments for secure communication.
+- Regularly update the proxy to ensure compatibility with the latest Azure OpenAI API changes.
+- Monitor your Azure OpenAI usage and costs, especially when using this proxy in high-traffic scenarios.
 
 ## Recently Updated
 
++ 2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.
++ 2024-07-18 Added support for `gpt-4o-mini`.
 + 2024-06-23 Implemented dynamic model fetching for `/v1/models endpoint`, replacing hardcoded model list.
 + 2024-06-23 Unified token handling mechanism across the application, improving consistency and security.
 + 2024-06-23 Added support for audio-related endpoints: `/v1/audio/speech`, `/v1/audio/transcriptions`, and `/v1/audio/translations`.
@@ -161,28 +230,13 @@ curl https://localhost:11437/v1/chat/completions \
 + 2024-06-22 Updated model mappings to include the latest models (gpt-4-turbo, gpt-4-vision-preview, dall-e-3).
 + 2024-06-23 Added support for deployments management (/deployments).
 
-## Model Mapping Mechanism (DEPRECATED)
-
-There are a series of rules for model mapping pre-defined in `AZURE_OPENAI_MODEL_MAPPER`, and the default configuration basically satisfies the mapping of all Azure models. The rules include:
-
-- `gpt-3.5-turbo` -> `gpt-35-turbo`
-- `gpt-3.5-turbo-0301` -> `gpt-35-turbo-0301`
-- A mapping mechanism that pass model name directly as fallback.
-
-For custom fine-tuned models, the model name can be passed directly. For models with deployment names different from the model names, custom mapping relationships can be defined, such as:
-
-| Model Name         | Deployment Name              |
-| :----------------- | :--------------------------- |
-| gpt-3.5-turbo      | gpt-35-turbo-upgrade         |
-| gpt-3.5-turbo-0301 | gpt-35-turbo-0301-fine-tuned |
-
 ## Contributing
 
-We welcome contributions! Rest TBD.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License
+This project is licensed under the MIT License.
 
 ## Disclaimer
 

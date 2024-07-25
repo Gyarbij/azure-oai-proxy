@@ -1,0 +1,21 @@
+services:
+  azure-oai-proxy:
+    # env_file: .env
+    image: 'gyarbij/azure-oai-proxy:latest'
+    # container_name: azure-oai-proxy
+    # Alternatively, use GitHub Container Registry:
+    # image: 'ghcr.io/gyarbij/azure-oai-proxy:latest'
+    restart: always
+    environment:
+      - AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+    # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
+    # - AZURE_OPENAI_PROXY_MODE=azure
+    # - AZURE_OPENAI_APIVERSION=2024-06-01
+    # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
+    # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,llama-3.1-70B=Llama-31-70B:swedencentral
+    # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
+    # - AZURE_OPENAI_KEY_LLAMA-3.1-8B=your-api-key-2
+    # - AZURE_OPENAI_KEY_LLAMA-3.1-70B=your-api-key-3
+    ports:
+      - '11437:11437'
+    # Uncomment the following line to use an .env file:
