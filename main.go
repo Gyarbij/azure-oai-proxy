@@ -159,39 +159,42 @@ func handleGetModels(c *gin.Context) {
 }
 
 func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
-	endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
-	if endpoint == "" {
-		endpoint = azure.AzureOpenAIEndpoint
-	}
+    endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
+    if endpoint == "" {
+        endpoint = azure.AzureOpenAIEndpoint
+    }
 
-	url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
+    url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
+    log.Printf("Requesting deployed models from URL: %s", url)
 
-	req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return nil, fmt.Errorf("error creating request: %v", err)
+    }
 
-	azure.HandleToken(req)
+    req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+    azure.HandleToken(req)
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to fetch deployed models: %s", string(body))
-	}
+    client := &http.Client{Timeout: 10 * time.Second}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("error sending request: %v", err)
+    }
+    defer resp.Body.Close()
 
-	var deployedModelsResponse ModelList
-	if err := json.NewDecoder(resp.Body).Decode(&deployedModelsResponse); err != nil {
-		return nil, err
-	}
+    body, _ := io.ReadAll(resp.Body)
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("failed to fetch deployed models: Status: %d, Body: %s, URL: %s", resp.StatusCode, string(body), url)
+    }
 
-	return deployedModelsResponse.Data, nil
+    var deployedModelsResponse ModelList
+    if err := json.Unmarshal(body, &deployedModelsResponse); err != nil {
+        return nil, fmt.Errorf("error unmarshaling response: %v, Body: %s", err, string(body))
+    }
+
+    log.Printf("Successfully fetched %d deployed models", len(deployedModelsResponse.Data))
+    return deployedModelsResponse.Data, nil
 }
 
 func handleOptions(c *gin.Context) {
