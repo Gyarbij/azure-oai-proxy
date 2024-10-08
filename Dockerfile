@@ -1,4 +1,4 @@
-FROM golang:1.23.0 AS builder
+FROM golang:1.23.2 AS builder
 WORKDIR /build
 COPY . .
 RUN go get github.com/joho/godotenv
