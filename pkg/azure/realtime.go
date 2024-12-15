@@ -13,21 +13,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var (
-	// RealTimeModels defines which models should use the realtime endpoint
-	RealTimeModels = map[string]bool{
-		"gpt-4o-realtime":         true,
-		"gpt-4o-realtime-preview": true,
-	}
-
-	upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true // TODO: Implement proper origin checks for production
-		},
-	}
-)
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true // TODO: Implement proper origin checks for production
+	},
+}
 
 // Session represents a realtime connection session
 type Session struct {
