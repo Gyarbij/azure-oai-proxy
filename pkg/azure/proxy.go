@@ -135,6 +135,23 @@ func HandleToken(req *http.Request) {
 	}
 }
 
+// function for serverless handling
+func handleServerlessRequest(req *http.Request, info ServerlessDeployment, model string) {
+	req.URL.Scheme = "https"
+	req.URL.Host = fmt.Sprintf("%s.%s.models.ai.azure.com", info.Name, info.Region)
+	req.Host = req.URL.Host
+
+	// Preserve query parameters from the original request
+	originalQuery := req.URL.Query()
+	for key, values := range originalQuery {
+		for _, value := range values {
+			req.URL.Query().Add(key, value)
+		}
+	}
+
+	log.Printf("Using serverless deployment for %s", model)
+}
+
 func makeDirector() func(*http.Request) {
 	return func(req *http.Request) {
 		model := getModelFromRequest(req)
@@ -167,11 +184,7 @@ func handleRegularRequest(req *http.Request, deployment string) {
 	modelLower := strings.ToLower(deployment)
 	if _, isRealtime := RealTimeModels[modelLower]; isRealtime {
 		if strings.HasPrefix(req.URL.Path, "/v1/chat/completions") {
-			// Return a helpful error message for chat completions with realtime models
-			w := req.Response.Writer
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-
+			// Create the error response
 			errorResp := map[string]interface{}{
 				"error": map[string]interface{}{
 					"message": fmt.Sprintf("Model %s requires using the /realtime endpoint. For regular chat, please use a standard model like gpt-4-turbo or gpt-4-1106-preview.", deployment),
@@ -180,7 +193,19 @@ func handleRegularRequest(req *http.Request, deployment string) {
 					"code":    "model_not_supported_for_completion",
 				},
 			}
-			json.NewEncoder(w).Encode(errorResp)
+
+			// Convert the response to JSON
+			responseBytes, _ := json.Marshal(errorResp)
+
+			// Set the response headers and body
+			header := http.Header{}
+			header.Set("Content-Type", "application/json")
+			*req = *req.Clone(req.Context()) // Clone the request to modify it
+			req.Response = &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Header:     header,
+				Body:       io.NopCloser(bytes.NewBuffer(responseBytes)),
+			}
 			return
 		}
 
