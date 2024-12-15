@@ -103,6 +103,13 @@ func main() {
 		router.GET("/v1/audio/voices", handleAzureProxy)
 		router.POST("/v1/audio/transcriptions", handleAzureProxy)
 		router.POST("/v1/audio/translations", handleAzureProxy)
+		// Add WebSocket endpoints for realtime
+		router.GET("/v1/realtime", func(c *gin.Context) {
+			azure.HandleRealtime(c.Writer, c.Request)
+		})
+		router.GET("/openai/realtime", func(c *gin.Context) {
+			azure.HandleRealtime(c.Writer, c.Request)
+		})
 		// Fine-tuning routes
 		router.POST("/v1/fine_tunes", handleAzureProxy)
 		router.GET("/v1/fine_tunes", handleAzureProxy)
@@ -160,42 +167,42 @@ func handleGetModels(c *gin.Context) {
 }
 
 func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
-    endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
-    if endpoint == "" {
-        endpoint = azure.AzureOpenAIEndpoint
-    }
+	endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
+	if endpoint == "" {
+		endpoint = azure.AzureOpenAIEndpoint
+	}
 
-    url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
-    log.Printf("Requesting deployed models from URL: %s", url)
+	url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
+	log.Printf("Requesting deployed models from URL: %s", url)
 
-    req, err := http.NewRequest("GET", url, nil)
-    if err != nil {
-        return nil, fmt.Errorf("error creating request: %v", err)
-    }
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
 
-    req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
+	req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
 
-    azure.HandleToken(req)
+	azure.HandleToken(req)
 
-    client := &http.Client{Timeout: 10 * time.Second}
-    resp, err := client.Do(req)
-    if err != nil {
-        return nil, fmt.Errorf("error sending request: %v", err)
-    }
-    defer resp.Body.Close()
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
 
-    body, _ := io.ReadAll(resp.Body)
-    if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf("failed to fetch deployed models: Status: %d, Body: %s, URL: %s", resp.StatusCode, string(body), url)
-    }
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch deployed models: Status: %d, Body: %s, URL: %s", resp.StatusCode, string(body), url)
+	}
 
-    var deployedModelsResponse ModelList
-    if err := json.Unmarshal(body, &deployedModelsResponse); err != nil {
-        return nil, fmt.Errorf("error unmarshaling response: %v, Body: %s", err, string(body))
-    }
+	var deployedModelsResponse ModelList
+	if err := json.Unmarshal(body, &deployedModelsResponse); err != nil {
+		return nil, fmt.Errorf("error unmarshaling response: %v, Body: %s", err, string(body))
+	}
 
-    log.Printf("Successfully fetched %d deployed models", len(deployedModelsResponse.Data))
-    return deployedModelsResponse.Data, nil
+	log.Printf("Successfully fetched %d deployed models", len(deployedModelsResponse.Data))
+	return deployedModelsResponse.Data, nil
 }
 
 func handleOptions(c *gin.Context) {
