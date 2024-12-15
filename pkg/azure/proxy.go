@@ -80,6 +80,8 @@ func init() {
 		"tts-1-hd":                    "tts-hd",
 		"text-embedding-3-small":      "text-embedding-3-small-1",
 		"text-embedding-3-large":      "text-embedding-3-large-1",
+		"gpt-4o-realtime":             "gpt-4o-realtime",
+		"gpt-4o-realtime-preview":     "gpt-4o-realtime-preview",
 	}
 
 	log.Printf("Loaded ServerlessDeploymentInfo: %+v", ServerlessDeploymentInfo)
@@ -176,7 +178,13 @@ func handleRegularRequest(req *http.Request, deployment string) {
 	req.URL.Host = remote.Host
 	req.Host = remote.Host
 
-	// Construct the path for regular Azure OpenAI deployments
+	// Check if this is a voice/audio request that should use realtime
+	if isVoiceRequest(req) && IsRealtimeModel(deployment) {
+		handleRealtimeRedirect(req)
+		return
+	}
+
+	// Regular request handling
 	switch {
 	case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
 		req.URL.Path = path.Join("/openai/deployments", deployment, "chat/completions")
@@ -201,6 +209,24 @@ func handleRegularRequest(req *http.Request, deployment string) {
 	}
 
 	log.Printf("Using regular Azure OpenAI deployment for %s", deployment)
+}
+
+// isVoiceRequest checks if the request is for voice/audio features
+func isVoiceRequest(req *http.Request) bool {
+	// Add conditions based on Open WebUI's voice feature request patterns
+	return strings.Contains(req.URL.Path, "/audio/speech") ||
+		strings.Contains(req.URL.Path, "/audio/transcriptions")
+}
+
+// handleRealtimeRedirect modifies the request to use the realtime endpoint
+func handleRealtimeRedirect(req *http.Request) {
+	// Transform the request to use the realtime endpoint
+	req.URL.Path = "/openai/realtime"
+
+	// Add required query parameters
+	query := req.URL.Query()
+	query.Add("api-version", "2024-10-01-preview")
+	req.URL.RawQuery = query.Encode()
 }
 
 func getModelFromRequest(req *http.Request) string {
