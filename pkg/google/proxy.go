@@ -63,6 +63,15 @@ func HandleGoogleAIProxy(c *gin.Context) {
 	// Handle chat/completions
 	if strings.HasSuffix(c.Request.URL.Path, "/chat/completions") {
 		handleChatCompletion(c, model)
+	} else if c.Request.URL.Path == "/v1/models" {
+		// Handle model listing
+		models, err := FetchGoogleAIModels()
+		if err != nil {
+			log.Printf("Error fetching Google AI models: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch Google AI models"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": models})
 	} else {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid endpoint for Google AI Studio"})
 	}

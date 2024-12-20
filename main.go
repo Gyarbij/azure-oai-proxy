@@ -337,9 +337,11 @@ func handleProxy(c *gin.Context) {
 		server := azure.NewOpenAIReverseProxy()
 		server.ServeHTTP(c.Writer, c.Request)
 	case "google":
-		google.HandleGoogleAIProxy(c)
+		google.HandleGoogleAIProxy(c) // Use the correct function name
+		return
 	case "vertex":
-		vertex.HandleVertexAIProxy(c) // Call HandleVertexAIProxy directly
+		vertex.HandleVertexAIProxy(c) // Use the correct function name
+		return
 	default:
 		// Default to Azure if not specified, but only if the endpoint is set
 		if os.Getenv("AZURE_OPENAI_ENDPOINT") != "" {

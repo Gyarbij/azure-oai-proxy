@@ -70,6 +70,15 @@ func HandleVertexAIProxy(c *gin.Context) {
 	// Handle chat/completions
 	if strings.HasSuffix(c.Request.URL.Path, "/chat/completions") {
 		handleChatCompletion(c, model)
+	} else if c.Request.URL.Path == "/v1/models" {
+		// Handle model listing
+		models, err := FetchVertexAIModels()
+		if err != nil {
+			log.Printf("Error fetching Vertex AI models: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch Vertex AI models"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": models})
 	} else {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid endpoint for Vertex AI"})
 	}
