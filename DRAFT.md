@@ -60,7 +60,7 @@ The proxy currently supports the following OpenAI-compatible API endpoints, thou
 | ------------------------------ | :----------: | :--------------: | :-------: |
 | /v1/chat/completions           |      ✅      |        ✅        |     ✅    |
 | /v1/completions                |      ✅      |        ✅        |     ✅    |
-| /v1/embeddings                 |      ✅      |        ✅       |     ✅    |
+| /v1/embeddings                 |      ✅      |        ✅        |     ✅    |
 | /v1/images/generations         |      ✅      |        ❌        |     ❌    |
 | /v1/fine_tunes                 |      ✅      |        ❌        |     ❌    |
 | /v1/files                      |      ✅      |        ❌        |     ❌    |
