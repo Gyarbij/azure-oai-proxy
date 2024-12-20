@@ -331,29 +331,25 @@ func handleProxy(c *gin.Context) {
 		return
 	}
 
-	var server http.Handler
-
 	// Choose the proxy based on ProxyMode or specific environment variables
 	switch ProxyMode {
 	case "azure":
-		server = azure.NewOpenAIReverseProxy()
+		server := azure.NewOpenAIReverseProxy()
+		server.ServeHTTP(c.Writer, c.Request)
 	case "google":
 		google.HandleGoogleAIProxy(c)
-		return // Add this return statement
 	case "vertex":
-		server = vertex.NewVertexAIReverseProxy()
+		vertex.HandleVertexAIProxy(c) // Call HandleVertexAIProxy directly
 	default:
 		// Default to Azure if not specified, but only if the endpoint is set
 		if os.Getenv("AZURE_OPENAI_ENDPOINT") != "" {
-			server = azure.NewOpenAIReverseProxy()
+			server := azure.NewOpenAIReverseProxy()
+			server.ServeHTTP(c.Writer, c.Request)
 		} else {
 			// If no endpoint is configured, default to OpenAI
-			server = openai.NewOpenAIReverseProxy()
+			server := openai.NewOpenAIReverseProxy()
+			server.ServeHTTP(c.Writer, c.Request)
 		}
-	}
-
-	if ProxyMode != "google" {
-		server.ServeHTTP(c.Writer, c.Request)
 	}
 
 	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
