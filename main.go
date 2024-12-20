@@ -11,7 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gyarbij/azure-oai-proxy/pkg/azure"
+	"github.com/gyarbij/azure-oai-proxy/pkg/google"
 	"github.com/gyarbij/azure-oai-proxy/pkg/openai"
+	"github.com/gyarbij/azure-oai-proxy/pkg/vertex"
 	"github.com/joho/godotenv"
 )
 
@@ -27,14 +29,23 @@ type ModelList struct {
 }
 
 type Model struct {
-	ID              string       `json:"id"`
-	Object          string       `json:"object"`
-	CreatedAt       int64        `json:"created_at"`
-	Capabilities    Capabilities `json:"capabilities"`
-	LifecycleStatus string       `json:"lifecycle_status"`
-	Status          string       `json:"status"`
-	Deprecation     Deprecation  `json:"deprecation"`
-	FineTune        string       `json:"fine_tune,omitempty"`
+	ID                         string       `json:"id"`
+	Object                     string       `json:"object"`
+	CreatedAt                  int64        `json:"created_at"`
+	Capabilities               Capabilities `json:"capabilities"`
+	LifecycleStatus            string       `json:"lifecycle_status"`
+	Status                     string       `json:"status"`
+	Deprecation                Deprecation  `json:"deprecation"`
+	FineTune                   string       `json:"fine_tune,omitempty"`
+	Name                       string       `json:"name"`                  // Add Name field
+	Version                    string       `json:"version,omitempty"`     // Add Version field
+	Description                string       `json:"description,omitempty"` // Add Description field
+	InputTokenLimit            int          `json:"input_token_limit,omitempty"`
+	OutputTokenLimit           int          `json:"output_token_limit,omitempty"`
+	SupportedGenerationMethods []string     `json:"supported_generation_methods,omitempty"`
+	Temperature                float64      `json:"temperature,omitempty"`
+	TopP                       float64      `json:"top_p,omitempty"`
+	TopK                       int          `json:"top_k,omitempty"`
 }
 
 type Capabilities struct {
@@ -75,6 +86,16 @@ func init() {
 			}
 		}
 	}
+
+	// Initialize Google AI Studio
+	if v := os.Getenv("GOOGLE_AI_STUDIO_API_KEY"); v != "" {
+		google.Init(v)
+	}
+
+	// Initialize Vertex AI
+	if v := os.Getenv("VERTEX_AI_PROJECT_ID"); v != "" {
+		vertex.Init(v)
+	}
 }
 
 func main() {
@@ -88,77 +109,163 @@ func main() {
 	})
 
 	// Proxy routes
-	if ProxyMode == "azure" {
-		router.GET("/v1/models", handleGetModels)
-		router.OPTIONS("/v1/*path", handleOptions)
-		// Existing routes
-		router.POST("/v1/chat/completions", handleAzureProxy)
-		router.POST("/v1/completions", handleAzureProxy)
-		router.POST("/v1/embeddings", handleAzureProxy)
-		// DALL-E routes
-		router.POST("/v1/images/generations", handleAzureProxy)
-		// speech- routes
-		router.POST("/v1/audio/speech", handleAzureProxy)
-		router.GET("/v1/audio/voices", handleAzureProxy)
-		router.POST("/v1/audio/transcriptions", handleAzureProxy)
-		router.POST("/v1/audio/translations", handleAzureProxy)
-		// Fine-tuning routes
-		router.POST("/v1/fine_tunes", handleAzureProxy)
-		router.GET("/v1/fine_tunes", handleAzureProxy)
-		router.GET("/v1/fine_tunes/:fine_tune_id", handleAzureProxy)
-		router.POST("/v1/fine_tunes/:fine_tune_id/cancel", handleAzureProxy)
-		router.GET("/v1/fine_tunes/:fine_tune_id/events", handleAzureProxy)
-		// Files management routes
-		router.POST("/v1/files", handleAzureProxy)
-		router.GET("/v1/files", handleAzureProxy)
-		router.DELETE("/v1/files/:file_id", handleAzureProxy)
-		router.GET("/v1/files/:file_id", handleAzureProxy)
-		router.GET("/v1/files/:file_id/content", handleAzureProxy)
-		// Deployments management routes
-		router.GET("/deployments", handleAzureProxy)
-		router.GET("/deployments/:deployment_id", handleAzureProxy)
-		router.GET("/v1/models/:model_id/capabilities", handleAzureProxy)
-	} else {
-		router.Any("*path", handleOpenAIProxy)
-	}
+	router.OPTIONS("/v1/*path", handleOptions)
+	router.GET("/v1/models", handleGetModels)
+	router.POST("/v1/chat/completions", handleProxy)
+	router.POST("/v1/completions", handleProxy)
+	router.POST("/v1/embeddings", handleProxy)
+	router.POST("/v1/images/generations", handleProxy)
+	router.POST("/v1/audio/speech", handleProxy)
+	router.GET("/v1/audio/voices", handleProxy)
+	router.POST("/v1/audio/transcriptions", handleProxy)
+	router.POST("/v1/audio/translations", handleProxy)
+	router.POST("/v1/fine_tunes", handleProxy)
+	router.GET("/v1/fine_tunes", handleProxy)
+	router.GET("/v1/fine_tunes/:fine_tune_id", handleProxy)
+	router.POST("/v1/fine_tunes/:fine_tune_id/cancel", handleProxy)
+	router.GET("/v1/fine_tunes/:fine_tune_id/events", handleProxy)
+	router.POST("/v1/files", handleProxy)
+	router.GET("/v1/files", handleProxy)
+	router.DELETE("/v1/files/:file_id", handleProxy)
+	router.GET("/v1/files/:file_id", handleProxy)
+	router.GET("/v1/files/:file_id/content", handleProxy)
+	router.GET("/deployments", handleProxy)                      // Azure-specific
+	router.GET("/deployments/:deployment_id", handleProxy)       // Azure-specific
+	router.GET("/v1/models/:model_id/capabilities", handleProxy) // Azure-specific
 
 	router.Run(Address)
 }
 
 func handleGetModels(c *gin.Context) {
-	req, _ := http.NewRequest("GET", c.Request.URL.String(), nil)
-	req.Header.Set("Authorization", c.GetHeader("Authorization"))
+	var allModels []Model
 
-	models, err := fetchDeployedModels(req)
-	if err != nil {
-		log.Printf("error fetching deployed models: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch deployed models"})
-		return
+	// Always fetch Azure models if AZURE_OPENAI_ENDPOINT is set
+	if os.Getenv("AZURE_OPENAI_ENDPOINT") != "" {
+		azureModels, err := fetchAzureModels(c.Request)
+		if err != nil {
+			log.Printf("error fetching Azure models: %v", err)
+		} else {
+			for _, am := range azureModels {
+				allModels = append(allModels, Model{
+					ID:              am.ID,
+					Object:          am.Object,
+					CreatedAt:       am.CreatedAt,
+					Capabilities:    mapAzureCapabilities(am.Capabilities),
+					LifecycleStatus: am.LifecycleStatus,
+					Status:          am.Status,
+					Deprecation:     mapAzureDeprecation(am.Deprecation),
+					FineTune:        am.FineTune,
+					Name:            am.ID, // Use ID as Name for Azure models
+				})
+			}
+		}
 	}
 
-	// Add serverless deployments to the models list
-	for deploymentName := range azure.ServerlessDeploymentInfo {
-		models = append(models, Model{
-			ID:     deploymentName,
-			Object: "model",
-			Capabilities: Capabilities{
-				Completion:     true,
-				ChatCompletion: true,
-				Inference:      true,
-			},
-			LifecycleStatus: "active",
-			Status:          "ready",
-		})
+	// Fetch models from other services based on ProxyMode or specific environment variables
+	switch ProxyMode {
+	case "google":
+		if googleModels, err := google.FetchGoogleAIModels(); err != nil {
+			log.Printf("error fetching Google AI Studio models: %v", err)
+		} else {
+			for _, gm := range googleModels {
+				allModels = append(allModels, Model{
+					ID:                         gm.ID,
+					Object:                     gm.Object,
+					CreatedAt:                  gm.CreatedAt,
+					Capabilities:               mapGoogleCapabilities(gm.Capabilities),
+					LifecycleStatus:            gm.LifecycleStatus,
+					Status:                     gm.Status,
+					Deprecation:                mapGoogleDeprecation(gm.Deprecation),
+					FineTune:                   gm.FineTune,
+					Name:                       gm.Name,
+					Version:                    gm.Version,
+					Description:                gm.Description,
+					InputTokenLimit:            gm.InputTokenLimit,
+					OutputTokenLimit:           gm.OutputTokenLimit,
+					SupportedGenerationMethods: gm.SupportedGenerationMethods,
+					Temperature:                gm.Temperature,
+					TopP:                       gm.TopP,
+					TopK:                       gm.TopK,
+				})
+			}
+		}
+	case "vertex":
+		if vertexModels, err := vertex.FetchVertexAIModels(); err != nil {
+			log.Printf("error fetching Vertex AI models: %v", err)
+		} else {
+			for _, vm := range vertexModels {
+				allModels = append(allModels, Model{
+					ID:              vm.ID,
+					Object:          vm.Object,
+					CreatedAt:       vm.CreatedAt,
+					Capabilities:    mapVertexCapabilities(vm.Capabilities),
+					LifecycleStatus: vm.LifecycleStatus,
+					Status:          vm.Status,
+					Deprecation:     mapVertexDeprecation(vm.Deprecation),
+					FineTune:        vm.FineTune,
+					Name:            vm.Name,
+					Description:     vm.Description,
+				})
+			}
+		}
+	default: // If ProxyMode is "azure" or not set, we've already fetched Azure models
+		if os.Getenv("GOOGLE_AI_STUDIO_API_KEY") != "" {
+			if googleModels, err := google.FetchGoogleAIModels(); err != nil {
+				log.Printf("error fetching Google AI Studio models: %v", err)
+			} else {
+				for _, gm := range googleModels {
+					allModels = append(allModels, Model{
+						ID:                         gm.ID,
+						Object:                     gm.Object,
+						CreatedAt:                  gm.CreatedAt,
+						Capabilities:               mapGoogleCapabilities(gm.Capabilities),
+						LifecycleStatus:            gm.LifecycleStatus,
+						Status:                     gm.Status,
+						Deprecation:                mapGoogleDeprecation(gm.Deprecation),
+						FineTune:                   gm.FineTune,
+						Name:                       gm.Name,
+						Version:                    gm.Version,
+						Description:                gm.Description,
+						InputTokenLimit:            gm.InputTokenLimit,
+						OutputTokenLimit:           gm.OutputTokenLimit,
+						SupportedGenerationMethods: gm.SupportedGenerationMethods,
+						Temperature:                gm.Temperature,
+						TopP:                       gm.TopP,
+						TopK:                       gm.TopK,
+					})
+				}
+			}
+		}
+		if os.Getenv("VERTEX_AI_PROJECT_ID") != "" {
+			if vertexModels, err := vertex.FetchVertexAIModels(); err != nil {
+				log.Printf("error fetching Vertex AI models: %v", err)
+			} else {
+				for _, vm := range vertexModels {
+					allModels = append(allModels, Model{
+						ID:              vm.ID,
+						Object:          vm.Object,
+						CreatedAt:       vm.CreatedAt,
+						Capabilities:    mapVertexCapabilities(vm.Capabilities),
+						LifecycleStatus: vm.LifecycleStatus,
+						Status:          vm.Status,
+						Deprecation:     mapVertexDeprecation(vm.Deprecation),
+						FineTune:        vm.FineTune,
+						Name:            vm.Name,
+						Description:     vm.Description,
+					})
+				}
+			}
+		}
 	}
 
 	result := ModelList{
 		Object: "list",
-		Data:   models,
+		Data:   allModels,
 	}
 	c.JSON(http.StatusOK, result)
 }
 
-func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
+func fetchAzureModels(originalReq *http.Request) ([]azure.Model, error) {
 	endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
 	if endpoint == "" {
 		endpoint = azure.AzureOpenAIEndpoint
@@ -170,6 +277,7 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 		return nil, err
 	}
 
+	// Preserve original Authorization header for Azure
 	req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
 
 	azure.HandleToken(req)
@@ -183,12 +291,27 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to fetch deployed models: %s", string(body))
+		return nil, fmt.Errorf("failed to fetch deployed models from Azure: %s", string(body))
 	}
 
-	var deployedModelsResponse ModelList
+	var deployedModelsResponse azure.ModelList
 	if err := json.NewDecoder(resp.Body).Decode(&deployedModelsResponse); err != nil {
 		return nil, err
+	}
+
+	// Add serverless deployments to the models list for Azure
+	for deploymentName := range azure.ServerlessDeploymentInfo {
+		deployedModelsResponse.Data = append(deployedModelsResponse.Data, azure.Model{
+			ID:     deploymentName,
+			Object: "model",
+			Capabilities: azure.Capabilities{
+				Completion:     true,
+				ChatCompletion: true,
+				Inference:      true,
+			},
+			LifecycleStatus: "active",
+			Status:          "ready",
+		})
 	}
 
 	return deployedModelsResponse.Data, nil
@@ -202,28 +325,94 @@ func handleOptions(c *gin.Context) {
 	return
 }
 
-func handleAzureProxy(c *gin.Context) {
+func handleProxy(c *gin.Context) {
 	if c.Request.Method == http.MethodOptions {
 		handleOptions(c)
 		return
 	}
 
-	server := azure.NewOpenAIReverseProxy()
+	var server http.Handler
+
+	// Choose the proxy based on ProxyMode or specific environment variables
+	switch ProxyMode {
+	case "azure":
+		server = azure.NewOpenAIReverseProxy()
+	case "google":
+		server = google.NewGoogleAIReverseProxy()
+	case "vertex":
+		server = vertex.NewVertexAIReverseProxy()
+	default:
+		// Default to Azure if not specified, but only if the endpoint is set
+		if os.Getenv("AZURE_OPENAI_ENDPOINT") != "" {
+			server = azure.NewOpenAIReverseProxy()
+		} else {
+			// If no endpoint is configured, default to OpenAI
+			server = openai.NewOpenAIReverseProxy()
+		}
+	}
+
 	server.ServeHTTP(c.Writer, c.Request)
 
 	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
 		if _, err := c.Writer.Write([]byte("\n")); err != nil {
-			log.Printf("rewrite azure response error: %v", err)
+			log.Printf("rewrite response error: %v", err)
 		}
 	}
 
 	// Enhanced error logging
 	if c.Writer.Status() >= 400 {
-		log.Printf("Azure API request failed: %s %s, Status: %d", c.Request.Method, c.Request.URL.Path, c.Writer.Status())
+		log.Printf("API request failed: %s %s, Status: %d", c.Request.Method, c.Request.URL.Path, c.Writer.Status())
 	}
 }
 
-func handleOpenAIProxy(c *gin.Context) {
-	server := openai.NewOpenAIReverseProxy()
-	server.ServeHTTP(c.Writer, c.Request)
+// Helper functions to map capabilities and deprecation
+func mapAzureCapabilities(caps azure.Capabilities) Capabilities {
+	return Capabilities{
+		FineTune:       caps.FineTune,
+		Inference:      caps.Inference,
+		Completion:     caps.Completion,
+		ChatCompletion: caps.ChatCompletion,
+		Embeddings:     caps.Embeddings,
+	}
+}
+
+func mapAzureDeprecation(dep azure.Deprecation) Deprecation {
+	return Deprecation{
+		FineTune:  int64(dep.FineTune),  // Cast to int64
+		Inference: int64(dep.Inference), // Cast to int64
+	}
+}
+
+func mapGoogleCapabilities(caps google.Capabilities) Capabilities {
+	return Capabilities{
+		FineTune:       caps.FineTune,
+		Inference:      caps.Inference,
+		Completion:     caps.Completion,
+		ChatCompletion: caps.ChatCompletion,
+		Embeddings:     caps.Embeddings,
+	}
+}
+
+func mapGoogleDeprecation(dep google.Deprecation) Deprecation {
+	return Deprecation{
+		FineTune:  int64(dep.FineTune),  // Cast to int64
+		Inference: int64(dep.Inference), // Cast to int64
+	}
+}
+
+func mapVertexCapabilities(caps vertex.Capabilities) Capabilities {
+	return Capabilities{
+		FineTune:       caps.FineTune,
+		Inference:      caps.Inference,
+		Completion:     caps.Completion,
+		ChatCompletion: caps.ChatCompletion,
+		Embeddings:     caps.Embeddings,
+	}
+}
+
+func mapVertexDeprecation(dep vertex.Deprecation) Deprecation {
+	return Deprecation{
+		FineTune:  int64(dep.FineTune),  // Cast to int64
+		Inference: int64(dep.Inference), // Cast to int64
+	}
 }
