@@ -338,7 +338,8 @@ func handleProxy(c *gin.Context) {
 	case "azure":
 		server = azure.NewOpenAIReverseProxy()
 	case "google":
-		server = google.NewGoogleAIReverseProxy()
+		google.HandleGoogleAIProxy(c)
+		return // Add this return statement
 	case "vertex":
 		server = vertex.NewVertexAIReverseProxy()
 	default:
@@ -351,7 +352,9 @@ func handleProxy(c *gin.Context) {
 		}
 	}
 
-	server.ServeHTTP(c.Writer, c.Request)
+	if ProxyMode != "google" {
+		server.ServeHTTP(c.Writer, c.Request)
+	}
 
 	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
 		if _, err := c.Writer.Write([]byte("\n")); err != nil {

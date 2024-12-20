@@ -1,14 +1,17 @@
 package google
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/option"
 )
 
 var (
@@ -34,75 +37,105 @@ func Init(apiKey string) {
 	log.Printf("Google AI Studio initialized with API key: %s", apiKey)
 }
 
-func NewGoogleAIReverseProxy() *httputil.ReverseProxy {
-	config := &GoogleAIConfig{
-		APIKey:     GoogleAIAPIKey,
-		Endpoint:   GoogleAIEndpoint,
-		APIVersion: GoogleAIAPIVersion,
-		ModelMap:   GoogleAIModelMap,
+func HandleGoogleAIProxy(c *gin.Context) {
+	if GoogleAIAPIKey == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Google AI Studio API key not set"})
+		return
 	}
-	return newGoogleAIReverseProxy(config)
+
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, option.WithAPIKey(GoogleAIAPIKey))
+	if err != nil {
+		log.Printf("Error creating Google AI client: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Google AI client"})
+		return
+	}
+	defer client.Close()
+
+	modelName := getModelFromRequestBody(c.Request)
+	if mappedModel, ok := GoogleAIModelMap[strings.ToLower(modelName)]; ok {
+		modelName = mappedModel
+	}
+
+	model := client.GenerativeModel(modelName)
+
+	// Handle chat/completions
+	if strings.HasSuffix(c.Request.URL.Path, "/chat/completions") {
+		handleChatCompletion(c, model)
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid endpoint for Google AI Studio"})
+	}
 }
 
-func newGoogleAIReverseProxy(config *GoogleAIConfig) *httputil.ReverseProxy {
-	director := func(req *http.Request) {
-		originalURL := req.URL.String()
-		model := getModelFromRequest(req)
-
-		// Map the model name if necessary
-		if mappedModel, ok := config.ModelMap[strings.ToLower(model)]; ok {
-			model = mappedModel
-		}
-
-		// Construct the new URL
-		targetURL := fmt.Sprintf("%s/%s/models/%s:generateContent", config.Endpoint, config.APIVersion, model)
-		target, err := url.Parse(targetURL)
-		if err != nil {
-			log.Printf("Error parsing target URL: %v", err)
-			return
-		}
-
-		// Set the target
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.URL.Path = target.Path
-
-		// Add API key as a query parameter
-		query := req.URL.Query()
-		query.Add("key", config.APIKey)
-		req.URL.RawQuery = query.Encode()
-
-		// Remove Authorization header if present
-		req.Header.Del("Authorization")
-
-		log.Printf("proxying request %s -> %s", originalURL, req.URL.String())
-	}
-
-	return &httputil.ReverseProxy{Director: director}
-}
-
-func getModelFromRequest(req *http.Request) string {
-	// Check the URL path for the model
-	parts := strings.Split(req.URL.Path, "/")
-	for i, part := range parts {
-		if part == "models" && i+1 < len(parts) {
-			return parts[i+1]
+func getModelFromRequestBody(req *http.Request) string {
+	body, _ := io.ReadAll(req.Body)
+	req.Body = io.NopCloser(strings.NewReader(string(body))) // Restore the body
+	var data map[string]interface{}
+	if err := json.Unmarshal(body, &data); err == nil {
+		if model, ok := data["model"].(string); ok {
+			return model
 		}
 	}
-
-	// If not found in the path, try to get it from the request body
-	if req.Body != nil {
-		body, _ := io.ReadAll(req.Body)
-		req.Body = io.NopCloser(strings.NewReader(string(body))) // Restore the body
-		var data map[string]interface{}
-		if err := json.Unmarshal(body, &data); err == nil {
-			if model, ok := data["model"].(string); ok {
-				return model
-			}
-		}
-	}
-
 	return ""
+}
+
+func handleChatCompletion(c *gin.Context, model *genai.GenerativeModel) {
+	var req struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	cs := model.StartChat()
+	cs.History = []*genai.Content{}
+
+	for _, msg := range req.Messages {
+		cs.History = append(cs.History, &genai.Content{
+			Parts: []genai.Part{
+				genai.Text(msg.Content),
+			},
+			Role: msg.Role,
+		})
+	}
+
+	// Use SendMessage for a single response, or SendMessageStream for streaming responses
+	resp, err := cs.SendMessage(context.Background(), genai.Text(req.Messages[len(req.Messages)-1].Content))
+	if err != nil {
+		log.Printf("Error generating content: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate content"})
+		return
+	}
+
+	// Convert the response to OpenAI format
+	openaiResp := convertToOpenAIResponse(resp)
+	c.JSON(http.StatusOK, openaiResp)
+}
+
+// Helper function to convert Google AI response to OpenAI format
+func convertToOpenAIResponse(resp *genai.GenerateContentResponse) map[string]interface{} {
+	// This is a simplified conversion. You'll need to adjust it based on your needs.
+	var choices []map[string]interface{}
+	for _, candidate := range resp.Candidates {
+		choices = append(choices, map[string]interface{}{
+			"index": candidate.Index,
+			"message": map[string]interface{}{
+				"role":    "model",
+				"content": fmt.Sprintf("%v", candidate.Content.Parts),
+			},
+		})
+	}
+
+	return map[string]interface{}{
+		"object":  "chat.completion",
+		"choices": choices,
+		// Add other fields like usage, model, etc. if needed
+	}
 }
 
 type Model struct {
