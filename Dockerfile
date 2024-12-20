@@ -4,12 +4,19 @@ COPY . .
 RUN go get github.com/joho/godotenv
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o azure-oai-proxy .
 
-FROM gcr.io/distroless/base-debian12
+# Use debian:12-slim instead of distroless for installing additional tools
+FROM debian:12-slim
 COPY --from=builder /build/azure-oai-proxy /
-RUN apt-get update && apt-get install -y ca-certificates && apt-get install -y openssh-client
-RUN apt-get update && apt-get install -y curl
-RUN curl -sSL https://sdk.cloud.google.com | bash
-ENV PATH="$PATH:/opt/google-cloud-sdk/bin"
+
+# Install required packages
+RUN apt-get update && \
+    apt-get install -y ca-certificates openssh-client curl && \
+    curl -sSL https://sdk.cloud.google.com | bash && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH="$PATH:/root/google-cloud-sdk/bin"
 RUN gcloud init
+
 EXPOSE 11437
 ENTRYPOINT ["/azure-oai-proxy"]
