@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"os/exec"
 	"strings"
-
-	"github.com/gyarbij/azure-oai-proxy/pkg/azure"
 )
 
 var (
@@ -125,7 +123,35 @@ func getAccessToken() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func FetchVertexAIModels() ([]azure.Model, error) {
+type Model struct {
+	ID              string       `json:"id"`
+	Object          string       `json:"object"`
+	CreatedAt       int64        `json:"created_at"`
+	Capabilities    Capabilities `json:"capabilities"`
+	LifecycleStatus string       `json:"lifecycle_status"`
+	Status          string       `json:"status"`
+	Deprecation     Deprecation  `json:"deprecation"`
+	FineTune        string       `json:"fine_tune,omitempty"`
+	Name            string       `json:"name"`
+	Description     string       `json:"description"`
+}
+
+// Capabilities represents the capabilities of a Vertex AI model.
+type Capabilities struct {
+	FineTune       bool `json:"fine_tune"`
+	Inference      bool `json:"inference"`
+	Completion     bool `json:"completion"`
+	ChatCompletion bool `json:"chat_completion"`
+	Embeddings     bool `json:"embeddings"`
+}
+
+// Deprecation represents the deprecation status of a Vertex AI model.
+type Deprecation struct {
+	FineTune  int64 `json:"fine_tune,omitempty"`
+	Inference int64 `json:"inference,omitempty"`
+}
+
+func FetchVertexAIModels() ([]Model, error) {
 	if VertexAIProjectID == "" {
 		return nil, fmt.Errorf("Vertex AI Project ID not set")
 	}
@@ -168,22 +194,24 @@ func FetchVertexAIModels() ([]azure.Model, error) {
 		return nil, err
 	}
 
-	var models []azure.Model
+	var models []Model
 	for _, m := range vertexModels.Models {
 		// Extract model ID from the name field (e.g., "publishers/google/models/chat-bison")
 		parts := strings.Split(m.Name, "/")
 		modelID := parts[len(parts)-1]
 
-		models = append(models, azure.Model{
+		models = append(models, Model{
 			ID:     modelID,
 			Object: "model",
-			Capabilities: azure.Capabilities{
+			Capabilities: Capabilities{
 				Completion:     true,
 				ChatCompletion: strings.Contains(modelID, "chat"),
 				Embeddings:     strings.Contains(modelID, "embedding"),
 			},
 			LifecycleStatus: "active",
 			Status:          "ready",
+			Name:            m.Name,
+			Description:     m.Description,
 		})
 	}
 

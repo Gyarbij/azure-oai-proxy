@@ -9,8 +9,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-
-	"github.com/gyarbij/azure-oai-proxy/pkg/azure"
 )
 
 var (
@@ -107,7 +105,42 @@ func getModelFromRequest(req *http.Request) string {
 	return ""
 }
 
-func FetchGoogleAIModels() ([]azure.Model, error) {
+type Model struct {
+	ID                         string       `json:"id"`
+	Object                     string       `json:"object"`
+	CreatedAt                  int64        `json:"created_at"`
+	Capabilities               Capabilities `json:"capabilities"`
+	LifecycleStatus            string       `json:"lifecycle_status"`
+	Status                     string       `json:"status"`
+	Deprecation                Deprecation  `json:"deprecation"`
+	FineTune                   string       `json:"fine_tune,omitempty"`
+	Name                       string       `json:"name"`
+	Version                    string       `json:"version"`
+	Description                string       `json:"description"`
+	InputTokenLimit            int          `json:"inputTokenLimit"`
+	OutputTokenLimit           int          `json:"outputTokenLimit"`
+	SupportedGenerationMethods []string     `json:"supportedGenerationMethods"`
+	Temperature                float64      `json:"temperature,omitempty"`
+	TopP                       float64      `json:"topP,omitempty"`
+	TopK                       int          `json:"topK,omitempty"`
+}
+
+// Capabilities represents the capabilities of a Google AI model.
+type Capabilities struct {
+	FineTune       bool `json:"fine_tune"`
+	Inference      bool `json:"inference"`
+	Completion     bool `json:"completion"`
+	ChatCompletion bool `json:"chat_completion"`
+	Embeddings     bool `json:"embeddings"`
+}
+
+// Deprecation represents the deprecation status of a Google AI model.
+type Deprecation struct {
+	FineTune  int64 `json:"fine_tune,omitempty"`
+	Inference int64 `json:"inference,omitempty"`
+}
+
+func FetchGoogleAIModels() ([]Model, error) {
 	if GoogleAIAPIKey == "" {
 		return nil, fmt.Errorf("Google AI Studio API key not set")
 	}
@@ -149,15 +182,24 @@ func FetchGoogleAIModels() ([]azure.Model, error) {
 		return nil, err
 	}
 
-	var models []azure.Model
+	var models []Model
 	for _, m := range googleModels.Models {
 		// Extract model ID from the name field (e.g., "models/gemini-pro")
 		modelID := strings.TrimPrefix(m.Name, "models/")
 
-		models = append(models, azure.Model{
-			ID:     modelID,
-			Object: "model",
-			Capabilities: azure.Capabilities{
+		models = append(models, Model{
+			ID:                         modelID,
+			Object:                     "model",
+			Name:                       m.Name,
+			Version:                    m.Version,
+			Description:                m.Description,
+			InputTokenLimit:            m.InputTokenLimit,
+			OutputTokenLimit:           m.OutputTokenLimit,
+			SupportedGenerationMethods: m.SupportedGenerationMethods,
+			Temperature:                m.Temperature,
+			TopP:                       m.TopP,
+			TopK:                       m.TopK,
+			Capabilities: Capabilities{
 				Completion:     true,
 				ChatCompletion: true,
 				Embeddings:     strings.Contains(modelID, "embedding"),
