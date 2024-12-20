@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -85,6 +86,11 @@ func handleChatCompletion(c *gin.Context, model *genai.GenerativeModel) {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"messages"`
+		Stream      *bool    `json:"stream,omitempty"`
+		Temperature *float64 `json:"temperature,omitempty"`
+		TopP        *float64 `json:"top_p,omitempty"`
+		TopK        *int     `json:"top_k,omitempty"`
+		// Add other parameters as needed
 	}
 
 	if err := c.BindJSON(&req); err != nil {
@@ -104,17 +110,74 @@ func handleChatCompletion(c *gin.Context, model *genai.GenerativeModel) {
 		})
 	}
 
-	// Use SendMessage for a single response, or SendMessageStream for streaming responses
-	resp, err := cs.SendMessage(context.Background(), genai.Text(req.Messages[len(req.Messages)-1].Content))
-	if err != nil {
-		log.Printf("Error generating content: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate content"})
-		return
+	// Set advanced parameters if provided
+	if req.Temperature != nil {
+		model.SetTemperature(float32(*req.Temperature))
+	}
+	if req.TopP != nil {
+		model.SetTopP(float32(*req.TopP))
+	}
+	if req.TopK != nil {
+		model.SetTopK(int32(*req.TopK))
+	}
+	// Set other parameters as needed
+
+	// Handle streaming if requested
+	if req.Stream != nil && *req.Stream {
+		iter := cs.SendMessageStream(context.Background(), genai.Text(req.Messages[len(req.Messages)-1].Content))
+		c.Stream(func(w io.Writer) bool {
+			resp, err := iter.Next()
+			if err == iterator.Done {
+				return false
+			}
+			if err != nil {
+				log.Printf("Error generating content: %v", err)
+				c.SSEvent("error", "Failed to generate content")
+				return false
+			}
+
+			// Convert each response to OpenAI format and send as SSE
+			openaiResp := convertToOpenAIResponseStream(resp)
+			c.SSEvent("message", openaiResp)
+			return true
+		})
+	} else {
+		// Use SendMessage for a single response
+		resp, err := cs.SendMessage(context.Background(), genai.Text(req.Messages[len(req.Messages)-1].Content))
+		if err != nil {
+			log.Printf("Error generating content: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate content"})
+			return
+		}
+
+		// Convert the response to OpenAI format
+		openaiResp := convertToOpenAIResponse(resp)
+		c.JSON(http.StatusOK, openaiResp)
+	}
+}
+
+// Helper function to convert a single response to OpenAI format (for streaming)
+func convertToOpenAIResponseStream(resp *genai.GenerateContentResponse) map[string]interface{} {
+	var parts []string
+	for _, candidate := range resp.Candidates {
+		for _, part := range candidate.Content.Parts {
+			parts = append(parts, fmt.Sprintf("%v", part))
+		}
 	}
 
-	// Convert the response to OpenAI format
-	openaiResp := convertToOpenAIResponse(resp)
-	c.JSON(http.StatusOK, openaiResp)
+	return map[string]interface{}{
+		"object": "chat.completion.chunk",
+		"choices": []map[string]interface{}{
+			{
+				"index": 0,
+				"delta": map[string]interface{}{
+					"role":    "assistant",
+					"content": strings.Join(parts, ""),
+				},
+				"finish_reason": "stop",
+			},
+		},
+	}
 }
 
 // Helper function to convert Google AI response to OpenAI format
