@@ -80,13 +80,6 @@ func init() {
 func main() {
 	router := gin.Default()
 
-	// Health check endpoint
-	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "healthy",
-		})
-	})
-
 	// Proxy routes
 	if ProxyMode == "azure" {
 		router.GET("/v1/models", handleGetModels)
@@ -118,9 +111,23 @@ func main() {
 		router.GET("/deployments", handleAzureProxy)
 		router.GET("/deployments/:deployment_id", handleAzureProxy)
 		router.GET("/v1/models/:model_id/capabilities", handleAzureProxy)
+
+		// Responses API routes
+		router.POST("/v1/responses", handleAzureProxy)
+		router.GET("/v1/responses/:response_id", handleAzureProxy)
+		router.DELETE("/v1/responses/:response_id", handleAzureProxy)
+		router.POST("/v1/responses/:response_id/cancel", handleAzureProxy)
+		router.GET("/v1/responses/:response_id/input_items", handleAzureProxy)
 	} else {
 		router.Any("*path", handleOpenAIProxy)
 	}
+
+	// Health check endpoint
+	router.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "healthy",
+		})
+	})
 
 	router.Run(Address)
 }
@@ -164,7 +171,10 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 		endpoint = azure.AzureOpenAIEndpoint
 	}
 
-	url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
+	// Use the separate models API version
+	modelsAPIVersion := azure.AzureOpenAIModelsAPIVersion
+	url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, modelsAPIVersion)
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -207,16 +217,13 @@ func handleAzureProxy(c *gin.Context) {
 		handleOptions(c)
 		return
 	}
-
 	server := azure.NewOpenAIReverseProxy()
 	server.ServeHTTP(c.Writer, c.Request)
-
 	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
 		if _, err := c.Writer.Write([]byte("\n")); err != nil {
 			log.Printf("rewrite azure response error: %v", err)
 		}
 	}
-
 	// Enhanced error logging
 	if c.Writer.Status() >= 400 {
 		log.Printf("Azure API request failed: %s %s, Status: %d", c.Request.Method, c.Request.URL.Path, c.Writer.Status())

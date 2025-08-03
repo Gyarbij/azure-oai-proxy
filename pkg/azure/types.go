@@ -220,3 +220,123 @@ type Deprecation struct {
 	Inference int `json:"inference,omitempty"`
 	// Add any new deprecation fields here
 }
+
+// ResponsesCreateRequest represents the request to create a response
+type ResponsesCreateRequest struct {
+    Model               string                 `json:"model"`
+    Input               interface{}            `json:"input"`
+    Instructions        string                 `json:"instructions,omitempty"`
+    Tools               []ResponseTool         `json:"tools,omitempty"`
+    ToolChoice          interface{}            `json:"tool_choice,omitempty"`
+    ParallelToolCalls   bool                   `json:"parallel_tool_calls,omitempty"`
+    Metadata            map[string]interface{} `json:"metadata,omitempty"`
+    Temperature         float64                `json:"temperature,omitempty"`
+    TopP                float64                `json:"top_p,omitempty"`
+    MaxOutputTokens     int                    `json:"max_output_tokens,omitempty"`
+    Store               bool                   `json:"store,omitempty"`
+    Stream              bool                   `json:"stream,omitempty"`
+    Background          bool                   `json:"background,omitempty"`
+    PreviousResponseID  string                 `json:"previous_response_id,omitempty"`
+    ReasoningEffort     string                 `json:"reasoning_effort,omitempty"`
+    Include             []string               `json:"include,omitempty"`
+}
+
+// ResponseTool represents a tool in the Responses API
+type ResponseTool struct {
+    Type         string                 `json:"type"`
+    Name         string                 `json:"name,omitempty"`
+    Description  string                 `json:"description,omitempty"`
+    Parameters   map[string]interface{} `json:"parameters,omitempty"`
+    Container    *ToolContainer         `json:"container,omitempty"`
+    ServerLabel  string                 `json:"server_label,omitempty"`
+    ServerURL    string                 `json:"server_url,omitempty"`
+    Headers      map[string]string      `json:"headers,omitempty"`
+    RequireApproval string              `json:"require_approval,omitempty"`
+}
+
+// ToolContainer for code interpreter
+type ToolContainer struct {
+    Type  string   `json:"type"`
+    Files []string `json:"files,omitempty"`
+}
+
+// Response represents a response from the Responses API
+type Response struct {
+    ID                  string                 `json:"id"`
+    Object              string                 `json:"object"`
+    CreatedAt           float64                `json:"created_at"`
+    Error               *ResponseError         `json:"error,omitempty"`
+    IncompleteDetails   *IncompleteDetails     `json:"incomplete_details,omitempty"`
+    Instructions        string                 `json:"instructions,omitempty"`
+    Metadata            map[string]interface{} `json:"metadata"`
+    Model               string                 `json:"model"`
+    Output              []ResponseOutput       `json:"output"`
+    ParallelToolCalls   bool                   `json:"parallel_tool_calls,omitempty"`
+    Temperature         float64                `json:"temperature"`
+    ToolChoice          interface{}            `json:"tool_choice,omitempty"`
+    Tools               []ResponseTool         `json:"tools"`
+    TopP                float64                `json:"top_p"`
+    MaxOutputTokens     int                    `json:"max_output_tokens,omitempty"`
+    PreviousResponseID  string                 `json:"previous_response_id,omitempty"`
+    Reasoning           interface{}            `json:"reasoning,omitempty"`
+    Status              string                 `json:"status"`
+    Text                string                 `json:"text,omitempty"`
+    Truncation          interface{}            `json:"truncation,omitempty"`
+    Usage               *ResponseUsage         `json:"usage,omitempty"`
+    User                string                 `json:"user,omitempty"`
+    ReasoningEffort     string                 `json:"reasoning_effort,omitempty"`
+}
+
+// ResponseError represents an error in a response
+type ResponseError struct {
+    Type    string `json:"type"`
+    Message string `json:"message"`
+}
+
+// IncompleteDetails for incomplete responses
+type IncompleteDetails struct {
+    Reason string `json:"reason"`
+}
+
+// ResponseOutput represents output from a response
+type ResponseOutput struct {
+    ID          string                 `json:"id"`
+    Content     []ResponseContent      `json:"content,omitempty"`
+    Role        string                 `json:"role,omitempty"`
+    Status      string                 `json:"status,omitempty"`
+    Type        string                 `json:"type"`
+    Name        string                 `json:"name,omitempty"`
+    CallID      string                 `json:"call_id,omitempty"`
+    Arguments   map[string]interface{} `json:"arguments,omitempty"`
+    Result      string                 `json:"result,omitempty"`
+    ServerLabel string                 `json:"server_label,omitempty"`
+}
+
+// ResponseContent represents content in a response output
+type ResponseContent struct {
+    Annotations []interface{} `json:"annotations,omitempty"`
+    Text        string        `json:"text,omitempty"`
+    Type        string        `json:"type"`
+}
+
+// ResponseUsage represents usage statistics
+type ResponseUsage struct {
+    InputTokens        int                        `json:"input_tokens"`
+    OutputTokens       int                        `json:"output_tokens"`
+    TotalTokens        int                        `json:"total_tokens"`
+    OutputTokenDetails *ResponseOutputTokenDetail `json:"output_tokens_details,omitempty"`
+}
+
+// ResponseOutputTokenDetail represents detailed output token usage
+type ResponseOutputTokenDetail struct {
+    ReasoningTokens int `json:"reasoning_tokens"`
+}
+
+// InputItemsList represents a list of input items
+type InputItemsList struct {
+    Data    []ResponseOutput `json:"data"`
+    HasMore bool             `json:"has_more"`
+    Object  string           `json:"object"`
+    FirstID string           `json:"first_id"`
+    LastID  string           `json:"last_id"`
+}
