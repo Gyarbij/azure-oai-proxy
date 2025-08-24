@@ -227,55 +227,55 @@ For serverless deployments, use the model name as defined in your `AZURE_AI_STUD
 
 These are the default mappings for the most common models, if your Azure OpenAI deployment uses different names, you can set the `AZURE_OPENAI_MODEL_MAPPER` environment variable to define custom mappings. The proxy also includes a comprehensive **failsafe list** to handle a wide variety of model names:
 
-| OpenAI Model                     | Azure OpenAI Model           |
-|:---------------------------------| :--------------------------- |
-| `"o1"`                           | `"o1"`                       |
-| `"o1-preview"`                   | `"o1-preview"`               |
-| `"o1-mini-2024-09-12"`           | `"o1-mini-2024-09-12"`       |
-| `gpt-5`                          | `gpt-5-chat-2025-08-07`      |
-| `gpt-5-nano`                     | `gpt-5-nano-2025-08-07`      |
-| `gpt-5-mini`                     | `gpt-5-mini-2025-08-07`      |
-| `"gpt-4o"`                       | `"gpt-4o"`                   |
-| `"gpt-4o-2024-05-13"`            | `"gpt-4o-2024-05-13"`        |
-| `"gpt-4o-2024-08-06"`            | `"gpt-4o-2024-08-06"`        |
-| `"gpt-4o-mini"`                  | `"gpt-4o-mini"`              |
-| `"gpt-4o-mini-2024-07-18"`       | `"gpt-4o-mini-2024-07-18"`   |
-| `"gpt-4"`                        | `"gpt-4-0613"`               |
-| `"gpt-4-0613"`                   | `"gpt-4-0613"`               |
-| `"gpt-4-1106-preview"`           | `"gpt-4-1106-preview"`       |
-| `"gpt-4-0125-preview"`           | `"gpt-4-0125-preview"`       |
-| `"gpt-4-vision-preview"`         | `"gpt-4-vision-preview"`     |
-| `"gpt-4-turbo-2024-04-09"`       | `"gpt-4-turbo-2024-04-09"`   |
-| `"gpt-4-32k"`                    | `"gpt-4-32k-0613"`           |
-| `"gpt-4-32k-0613"`               | `"gpt-4-32k-0613"`           |
-| `"gpt-3.5-turbo"`                | `"gpt-35-turbo-0613"`        |
-| `"gpt-3.5-turbo-0301"`           | `"gpt-35-turbo-0301"`       |
-| `"gpt-3.5-turbo-0613"`           | `"gpt-35-turbo-0613"`       |
-| `"gpt-3.5-turbo-1106"`           | `"gpt-35-turbo-1106"`       |
-| `"gpt-3.5-turbo-0125"`           | `"gpt-35-turbo-0125"`       |
-| `"gpt-3.5-turbo-16k"`            | `"gpt-35-turbo-16k-0613"`   |
-| `"gpt-3.5-turbo-16k-0613"`       | `"gpt-35-turbo-16k-0613"`   |
-| `"gpt-3.5-turbo-instruct"`       | `"gpt-35-turbo-instruct-0914"` |
-| `"gpt-3.5-turbo-instruct-0914"`  | `"gpt-35-turbo-instruct-0914"` |
-| `"text-embedding-3-small"`       | `"text-embedding-3-small-1"` |
-| `"text-embedding-3-large"`       | `"text-embedding-3-large-1"` |
-| `"text-embedding-ada-002"`       | `"text-embedding-ada-002-2"` |
-| `"text-embedding-ada-002-1"`     | `"text-embedding-ada-002-1"` |
-| `"text-embedding-ada-002-2"`     | `"text-embedding-ada-002-2"` |
-| `"dall-e-2"`                     | `"dall-e-2-2.0"`             |
-| `"dall-e-2-2.0"`                 | `"dall-e-2-2.0"`             |
-| `"dall-e-3"`                     | `"dall-e-3-3.0"`             |
-| `"dall-e-3-3.0"`                 | `"dall-e-3-3.0"`             |
-| `"babbage-002"`                  | `"babbage-002-1"`           |
-| `"babbage-002-1"`                | `"babbage-002-1"`           |
-| `"davinci-002"`                  | `"davinci-002-1"`           |
-| `"davinci-002-1"`                | `"davinci-002-1"`           |
-| `"tts"`                          | `"tts-001"`                  |
-| `"tts-001"`                      | `"tts-001"`                  |
-| `"tts-hd"`                       | `"tts-hd-001"`               |
-| `"tts-hd-001"`                   | `"tts-hd-001"`               |
-| `"whisper"`                      | `"whisper-001"`              |
-| `"whisper-001"`                  | `"whisper-001"`              |
+| OpenAI Model                       | Azure OpenAI Model              |
+|:-----------------------------------|:--------------------------------|
+| `"o1"`                             | `"o1"`                          |
+| `"o1-preview"`                     | `"o1-preview"`                  |
+| `"o1-mini-2024-09-12"`             | `"o1-mini-2024-09-12"`          |
+| `"gpt-5"`                          | `"gpt-5-chat-2025-08-07"`       |
+| `"gpt-5-nano"`                     | `"gpt-5-nano-2025-08-07"`       |
+| `"gpt-5-mini"`                     | `"gpt-5-mini-2025-08-07"`       |
+| `"gpt-4o"`                         | `"gpt-4o"`                      |
+| `"gpt-4o-2024-05-13"`              | `"gpt-4o-2024-05-13"`           |
+| `"gpt-4o-2024-08-06"`              | `"gpt-4o-2024-08-06"`           |
+| `"gpt-4o-mini"`                    | `"gpt-4o-mini"`                 |
+| `"gpt-4o-mini-2024-07-18"`         | `"gpt-4o-mini-2024-07-18"`      |
+| `"gpt-4"`                          | `"gpt-4-0613"`                  |
+| `"gpt-4-0613"`                     | `"gpt-4-0613"`                  |
+| `"gpt-4-1106-preview"`             | `"gpt-4-1106-preview"`          |
+| `"gpt-4-0125-preview"`             | `"gpt-4-0125-preview"`          |
+| `"gpt-4-vision-preview"`           | `"gpt-4-vision-preview"`        |
+| `"gpt-4-turbo-2024-04-09"`         | `"gpt-4-turbo-2024-04-09"`      |
+| `"gpt-4-32k"`                      | `"gpt-4-32k-0613"`              |
+| `"gpt-4-32k-0613"`                 | `"gpt-4-32k-0613"`              |
+| `"gpt-3.5-turbo"`                  | `"gpt-35-turbo-0613"`           |
+| `"gpt-3.5-turbo-0301"`             | `"gpt-35-turbo-0301"`           |
+| `"gpt-3.5-turbo-0613"`             | `"gpt-35-turbo-0613"`           |
+| `"gpt-3.5-turbo-1106"`             | `"gpt-35-turbo-1106"`           |
+| `"gpt-3.5-turbo-0125"`             | `"gpt-35-turbo-0125"`           |
+| `"gpt-3.5-turbo-16k"`              | `"gpt-35-turbo-16k-0613"`       |
+| `"gpt-3.5-turbo-16k-0613"`         | `"gpt-35-turbo-16k-0613"`       |
+| `"gpt-3.5-turbo-instruct"`         | `"gpt-35-turbo-instruct-0914"`  |
+| `"gpt-3.5-turbo-instruct-0914"`    | `"gpt-35-turbo-instruct-0914"`  |
+| `"text-embedding-3-small"`         | `"text-embedding-3-small-1"`    |
+| `"text-embedding-3-large"`         | `"text-embedding-3-large-1"`    |
+| `"text-embedding-ada-002"`         | `"text-embedding-ada-002-2"`    |
+| `"text-embedding-ada-002-1"`       | `"text-embedding-ada-002-1"`    |
+| `"text-embedding-ada-002-2"`       | `"text-embedding-ada-002-2"`    |
+| `"dall-e-2"`                       | `"dall-e-2-2.0"`                |
+| `"dall-e-2-2.0"`                   | `"dall-e-2-2.0"`                |
+| `"dall-e-3"`                       | `"dall-e-3-3.0"`                |
+| `"dall-e-3-3.0"`                   | `"dall-e-3-3.0"`                |
+| `"babbage-002"`                    | `"babbage-002-1"`               |
+| `"babbage-002-1"`                  | `"babbage-002-1"`               |
+| `"davinci-002"`                    | `"davinci-002-1"`               |
+| `"davinci-002-1"`                  | `"davinci-002-1"`               |
+| `"tts"`                            | `"tts-001"`                     |
+| `"tts-001"`                        | `"tts-001"`                     |
+| `"tts-hd"`                         | `"tts-hd-001"`                  |
+| `"tts-hd-001"`                     | `"tts-hd-001"`                  |
+| `"whisper"`                        | `"whisper-001"`                 |
+| `"whisper-001"`                    | `"whisper-001"`                 |
 
 For custom fine-tuned models, the model name can be passed directly. For models with deployment names different from the model names, custom mapping relationships can be defined, such as:
 
