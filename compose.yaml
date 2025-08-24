@@ -11,7 +11,7 @@ services:
     # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
     # - AZURE_OPENAI_PROXY_MODE=azure
     # - AZURE_OPENAI_APIVERSION=2024-06-01
-    # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
+    # - AZURE_OPENAI_MODEL_MAPPER=gpt-5=gpt-5-chat-2025-08-07,gpt-4=gpt-4-0613,gpt-5-mini=gpt-5-mini-2025-08-07,gpt-5-nano=gpt-5-nano-2025-08-07
     # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,llama-3.1-70B=Llama-31-70B:swedencentral
     # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
     # - AZURE_OPENAI_KEY_LLAMA-3.1-8B=your-api-key-2

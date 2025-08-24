@@ -62,6 +62,9 @@ func init() {
 	AzureOpenAIModelMapper = map[string]string{
 		"o1-preview":                  "o1-preview",
 		"o1-mini-2024-09-12":          "o1-mini-2024-09-12",
+		"gpt-5":                       "gpt-5-chat-2025-08-07",
+		"gpt-5-mini":                  "gpt-5-mini-2025-08-07",
+		"gpt-5-nano":                  "gpt-5-nano-2025-08-07",
 		"gpt-4o":                      "gpt-4o",
 		"gpt-4o-2024-05-13":           "gpt-4o-2024-05-13",
 		"gpt-4o-2024-08-06":           "gpt-4o-2024-08-06",
