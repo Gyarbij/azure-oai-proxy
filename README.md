@@ -85,8 +85,9 @@ The proxy automatically detects model capabilities and routes requests appropria
 *GPT-5 models use the Azure OpenAI v1 endpoint structure: `/openai/deployments/{deployment-name}/v1/chat/completions`*
 
 ### Claude Models (Azure AI Foundry)
-- **Claude 3.5**: claude-3-5-sonnet, claude-3.5-sonnet
-- **Claude 3**: claude-3-opus, claude-3-sonnet, claude-3-haiku
+- **Claude Sonnet 4.5**: claude-sonnet-4.5, claude-sonnet-4-5
+- **Claude Haiku 4.5**: claude-haiku-4.5, claude-haiku-4-5
+- **Claude Opus 4.1**: claude-opus-4.1, claude-opus-4-1
 
 *Claude models on Azure AI Foundry use the models endpoint structure and are automatically detected and routed correctly.*
 
@@ -224,7 +225,7 @@ curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
  -H "Authorization: Bearer your-azure-api-key" \
  -d '{
-  "model": "claude-3-5-sonnet",
+  "model": "claude-sonnet-4.5",
   "messages": [{"role": "user", "content": "Explain quantum computing in simple terms."}]
  }'
 ```
@@ -289,11 +290,12 @@ These are the default mappings for the most common models, if your Azure OpenAI 
 | `"gpt-3.5-turbo-16k-0613"`   | `"gpt-35-turbo-16k-0613"`   |
 | `"gpt-3.5-turbo-instruct"`   | `"gpt-35-turbo-instruct-0914"` |
 | `"gpt-3.5-turbo-instruct-0914"` | `"gpt-35-turbo-instruct-0914"` |
-| `"claude-3-5-sonnet"`        | `"claude-3-5-sonnet"`        |
-| `"claude-3.5-sonnet"`        | `"claude-3-5-sonnet"`        |
-| `"claude-3-opus"`            | `"claude-3-opus"`            |
-| `"claude-3-sonnet"`          | `"claude-3-sonnet"`          |
-| `"claude-3-haiku"`           | `"claude-3-haiku"`           |
+| `"claude-sonnet-4.5"`        | `"claude-sonnet-4.5"`        |
+| `"claude-sonnet-4-5"`        | `"claude-sonnet-4.5"`        |
+| `"claude-haiku-4.5"`         | `"claude-haiku-4.5"`         |
+| `"claude-haiku-4-5"`         | `"claude-haiku-4.5"`         |
+| `"claude-opus-4.1"`          | `"claude-opus-4.1"`          |
+| `"claude-opus-4-1"`          | `"claude-opus-4.1"`          |
 | `"text-embedding-3-small"`   | `"text-embedding-3-small-1"` |
 | `"text-embedding-3-large"`   | `"text-embedding-3-large-1"` |
 | `"text-embedding-ada-002"`   | `"text-embedding-ada-002-2"` |
@@ -352,7 +354,7 @@ When using reasoning models, you get access to:
 -   Some reasoning models may have usage limits or require special access permissions.
 
 ## Recently Updated
--   **2025-01-28** Added support for GPT-5 models (gpt-5, gpt-5-pro, gpt-5-mini) and Claude models on Azure AI Foundry (claude-3-5-sonnet, claude-3-opus, claude-3-sonnet, claude-3-haiku) with automatic endpoint detection and routing.
+-   **2025-01-28** Added support for GPT-5 models (gpt-5, gpt-5-pro, gpt-5-mini) and Claude 4.x models on Azure AI Foundry (claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1) with automatic endpoint detection and routing.
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.

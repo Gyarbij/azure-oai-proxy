@@ -12,12 +12,13 @@ func TestIsClaudeModel(t *testing.T) {
 		model    string
 		expected bool
 	}{
-		{"claude-3-5-sonnet", true},
-		{"claude-3.5-sonnet", true},
-		{"claude-3-opus", true},
-		{"claude-3-sonnet", true},
-		{"claude-3-haiku", true},
-		{"Claude-3-Opus", true}, // Test case insensitivity
+		{"claude-sonnet-4.5", true},
+		{"claude-sonnet-4-5", true},
+		{"claude-haiku-4.5", true},
+		{"claude-haiku-4-5", true},
+		{"claude-opus-4.1", true},
+		{"claude-opus-4-1", true},
+		{"Claude-Sonnet-4.5", true}, // Test case insensitivity
 		{"gpt-4", false},
 		{"gpt-5-pro", false},
 		{"o1-preview", false},
@@ -44,7 +45,7 @@ func TestIsGPT5Model(t *testing.T) {
 		{"GPT-5-Pro", true}, // Test case insensitivity
 		{"gpt-4", false},
 		{"gpt-4o", false},
-		{"claude-3-opus", false},
+		{"claude-opus-4.1", false},
 		{"o1-preview", false},
 	}
 
@@ -69,7 +70,7 @@ func TestShouldUseResponsesAPI(t *testing.T) {
 		{"O3-Pro", true}, // Test case insensitivity
 		{"gpt-5", false},
 		{"gpt-4", false},
-		{"claude-3-opus", false},
+		{"claude-opus-4.1", false},
 	}
 
 	for _, tt := range tests {
@@ -86,8 +87,8 @@ func TestModelMapper(t *testing.T) {
 	// Test that all expected models are in the mapper
 	expectedModels := []string{
 		"gpt-5", "gpt-5-pro", "gpt-5-mini",
-		"claude-3-5-sonnet", "claude-3.5-sonnet", "claude-3-opus",
-		"claude-3-sonnet", "claude-3-haiku",
+		"claude-sonnet-4.5", "claude-sonnet-4-5", "claude-haiku-4.5",
+		"claude-haiku-4-5", "claude-opus-4.1", "claude-opus-4-1",
 		"gpt-4o", "gpt-4", "gpt-3.5-turbo",
 	}
 
@@ -152,14 +153,14 @@ func TestHandleClaudeRequest(t *testing.T) {
 		{
 			name:         "chat completions",
 			inputPath:    "/v1/chat/completions",
-			deployment:   "claude-3-5-sonnet",
-			expectedPath: "/models/claude-3-5-sonnet/chat/completions",
+			deployment:   "claude-sonnet-4.5",
+			expectedPath: "/models/claude-sonnet-4.5/chat/completions",
 		},
 		{
 			name:         "completions",
 			inputPath:    "/v1/completions",
-			deployment:   "claude-3-opus",
-			expectedPath: "/models/claude-3-opus/completions",
+			deployment:   "claude-opus-4.1",
+			expectedPath: "/models/claude-opus-4.1/completions",
 		},
 	}
 
@@ -204,9 +205,9 @@ func TestHandleRegularRequest(t *testing.T) {
 		{
 			name:           "Claude model",
 			inputPath:      "/v1/chat/completions",
-			deployment:     "claude-3-opus",
+			deployment:     "claude-opus-4.1",
 			expectClaude:   true,
-			expectedPrefix: "/models/claude-3-opus/",
+			expectedPrefix: "/models/claude-opus-4.1/",
 		},
 		{
 			name:           "Regular GPT-4 model",

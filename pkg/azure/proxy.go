@@ -106,12 +106,13 @@ func init() {
 		"tts-hd-001":                  "tts-hd-001",
 		"whisper":                     "whisper-001",
 		"whisper-001":                 "whisper-001",
-		// Claude models on Azure AI Foundry
-		"claude-3-5-sonnet":           "claude-3-5-sonnet",
-		"claude-3.5-sonnet":           "claude-3-5-sonnet",
-		"claude-3-opus":               "claude-3-opus",
-		"claude-3-sonnet":             "claude-3-sonnet",
-		"claude-3-haiku":              "claude-3-haiku",
+		// Claude models on Azure AI Foundry (4.x series)
+		"claude-sonnet-4.5":           "claude-sonnet-4.5",
+		"claude-sonnet-4-5":           "claude-sonnet-4.5",
+		"claude-haiku-4.5":            "claude-haiku-4.5",
+		"claude-haiku-4-5":            "claude-haiku-4.5",
+		"claude-opus-4.1":             "claude-opus-4.1",
+		"claude-opus-4-1":             "claude-opus-4.1",
 	}
 
 	log.Printf("Loaded ServerlessDeploymentInfo: %+v", ServerlessDeploymentInfo)
