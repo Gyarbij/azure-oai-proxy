@@ -1,6 +1,9 @@
 package azure
 
 import (
+	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -92,5 +95,157 @@ func TestModelMapper(t *testing.T) {
 		if _, ok := AzureOpenAIModelMapper[model]; !ok {
 			t.Errorf("Expected model %q to be in AzureOpenAIModelMapper", model)
 		}
+	}
+}
+
+func TestHandleGPT5Request(t *testing.T) {
+	// Set up a test endpoint
+	AzureOpenAIEndpoint = "https://test.openai.azure.com/"
+	
+	tests := []struct {
+		name           string
+		inputPath      string
+		deployment     string
+		expectedPath   string
+	}{
+		{
+			name:         "chat completions",
+			inputPath:    "/v1/chat/completions",
+			deployment:   "gpt-5-pro",
+			expectedPath: "/openai/deployments/gpt-5-pro/v1/chat/completions",
+		},
+		{
+			name:         "completions",
+			inputPath:    "/v1/completions",
+			deployment:   "gpt-5",
+			expectedPath: "/openai/deployments/gpt-5/v1/completions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", "http://test.com"+tt.inputPath, nil)
+			handleGPT5Request(req, tt.deployment)
+			
+			if req.URL.Path != tt.expectedPath {
+				t.Errorf("handleGPT5Request() path = %q, want %q", req.URL.Path, tt.expectedPath)
+			}
+			
+			// Check that api-version parameter was added
+			if req.URL.Query().Get("api-version") == "" {
+				t.Error("handleGPT5Request() did not add api-version query parameter")
+			}
+		})
+	}
+}
+
+func TestHandleClaudeRequest(t *testing.T) {
+	// Set up a test endpoint
+	AzureOpenAIEndpoint = "https://test.openai.azure.com/"
+	
+	tests := []struct {
+		name           string
+		inputPath      string
+		deployment     string
+		expectedPath   string
+	}{
+		{
+			name:         "chat completions",
+			inputPath:    "/v1/chat/completions",
+			deployment:   "claude-3-5-sonnet",
+			expectedPath: "/models/claude-3-5-sonnet/chat/completions",
+		},
+		{
+			name:         "completions",
+			inputPath:    "/v1/completions",
+			deployment:   "claude-3-opus",
+			expectedPath: "/models/claude-3-opus/completions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", "http://test.com"+tt.inputPath, nil)
+			handleClaudeRequest(req, tt.deployment)
+			
+			if req.URL.Path != tt.expectedPath {
+				t.Errorf("handleClaudeRequest() path = %q, want %q", req.URL.Path, tt.expectedPath)
+			}
+			
+			// Check that api-version parameter was added
+			if req.URL.Query().Get("api-version") == "" {
+				t.Error("handleClaudeRequest() did not add api-version query parameter")
+			}
+		})
+	}
+}
+
+func TestHandleRegularRequest(t *testing.T) {
+	// Set up a test endpoint
+	originalEndpoint := AzureOpenAIEndpoint
+	AzureOpenAIEndpoint = "https://test.openai.azure.com/"
+	defer func() { AzureOpenAIEndpoint = originalEndpoint }()
+	
+	tests := []struct {
+		name           string
+		inputPath      string
+		deployment     string
+		expectGPT5     bool
+		expectClaude   bool
+		expectedPrefix string
+	}{
+		{
+			name:           "GPT-5 model",
+			inputPath:      "/v1/chat/completions",
+			deployment:     "gpt-5-pro",
+			expectGPT5:     true,
+			expectedPrefix: "/openai/deployments/gpt-5-pro/v1/",
+		},
+		{
+			name:           "Claude model",
+			inputPath:      "/v1/chat/completions",
+			deployment:     "claude-3-opus",
+			expectClaude:   true,
+			expectedPrefix: "/models/claude-3-opus/",
+		},
+		{
+			name:           "Regular GPT-4 model",
+			inputPath:      "/v1/chat/completions",
+			deployment:     "gpt-4",
+			expectedPrefix: "/openai/deployments/gpt-4/chat/completions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsedURL, _ := url.Parse("https://test.openai.azure.com/")
+			req := &http.Request{
+				Method: "POST",
+				URL: &url.URL{
+					Scheme: "http",
+					Host:   "test.com",
+					Path:   tt.inputPath,
+				},
+			}
+			
+			// Call the function
+			handleRegularRequest(req, tt.deployment)
+			
+			// Verify the URL was modified correctly
+			if req.URL.Scheme != parsedURL.Scheme {
+				t.Errorf("URL scheme = %q, want %q", req.URL.Scheme, parsedURL.Scheme)
+			}
+			
+			if req.URL.Host != parsedURL.Host {
+				t.Errorf("URL host = %q, want %q", req.URL.Host, parsedURL.Host)
+			}
+			
+			// For GPT-5 and Claude, the paths should have been set by their handlers
+			if tt.expectGPT5 || tt.expectClaude {
+				if !strings.HasPrefix(req.URL.Path, tt.expectedPrefix) {
+					t.Errorf("Path = %q, want prefix %q", req.URL.Path, tt.expectedPrefix)
+				}
+			}
+		})
 	}
 }

@@ -211,14 +211,16 @@ func handleGPT5Request(req *http.Request, deployment string) {
 	log.Printf("Handling GPT-5 model request for deployment: %s", deployment)
 
 	// Set the path with v1 prefix for GPT-5 models
+	// Note: GPT-5 uses a special v1 path format
 	switch {
 	case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
-		req.URL.Path = path.Join("/openai/deployments", deployment, "v1/chat/completions")
+		req.URL.Path = fmt.Sprintf("/openai/deployments/%s/v1/chat/completions", deployment)
 	case strings.HasPrefix(req.URL.Path, "/v1/completions"):
-		req.URL.Path = path.Join("/openai/deployments", deployment, "v1/completions")
+		req.URL.Path = fmt.Sprintf("/openai/deployments/%s/v1/completions", deployment)
 	default:
-		// For other endpoints, use standard format
-		req.URL.Path = path.Join("/openai/deployments", deployment, "v1", strings.TrimPrefix(req.URL.Path, "/v1/"))
+		// For other endpoints, use standard format with v1
+		subPath := strings.TrimPrefix(req.URL.Path, "/v1/")
+		req.URL.Path = fmt.Sprintf("/openai/deployments/%s/v1/%s", deployment, subPath)
 	}
 
 	// Add api-version query parameter
@@ -238,12 +240,13 @@ func handleClaudeRequest(req *http.Request, deployment string) {
 	switch {
 	case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
 		// Claude endpoint: /models/{model-name}/chat/completions
-		req.URL.Path = path.Join("/models", deployment, "chat/completions")
+		req.URL.Path = fmt.Sprintf("/models/%s/chat/completions", deployment)
 	case strings.HasPrefix(req.URL.Path, "/v1/completions"):
-		req.URL.Path = path.Join("/models", deployment, "completions")
+		req.URL.Path = fmt.Sprintf("/models/%s/completions", deployment)
 	default:
 		// For other endpoints, use the models prefix
-		req.URL.Path = path.Join("/models", deployment, strings.TrimPrefix(req.URL.Path, "/v1/"))
+		subPath := strings.TrimPrefix(req.URL.Path, "/v1/")
+		req.URL.Path = fmt.Sprintf("/models/%s/%s", deployment, subPath)
 	}
 
 	// Add api-version query parameter
