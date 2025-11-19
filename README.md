@@ -14,6 +14,7 @@ Azure OAI Proxy is a lightweight, high-performance proxy server that enables sea
 
 -   ✅ **API Compatibility**: Translates requests from OpenAI API format to Azure OpenAI Services format on-the-fly.
 -   🧠 **Advanced Reasoning Model Support**: Full support for Azure's advanced reasoning models (O1, O3, O4 series) through automatic Responses API integration.
+-   🤝 **Azure Foundry Claude Support**: Seamlessly routes Claude deployments that live in Azure AI Foundry's Anthropic endpoint while retaining OpenAI-compatible request and response shapes.
 -   📡 **Streaming Support**: Real-time streaming for both traditional chat models and reasoning models with proper format conversion.
 -   🗺️ **Model Mapping**: Automatically maps OpenAI model names to Azure scheme, with a comprehensive failsafe list.
 -   🔄 **Dynamic Model List**: Fetches available models directly from your Azure OpenAI deployment using a dedicated API version.
@@ -90,17 +91,19 @@ The proxy automatically detects model capabilities and routes requests appropria
 
 ### Environment Variables
 
-| Parameter                       | Description                                                    | Default Value    | Required |
-| :------------------------------ | :------------------------------------------------------------- | :--------------- | :------- |
-| AZURE_OPENAI_ENDPOINT           | Azure OpenAI Endpoint                                          |                  | Yes      |
-| AZURE_OPENAI_PROXY_ADDRESS      | Service listening address                                      | 0.0.0.0:11437    | No       |
-| AZURE_OPENAI_PROXY_MODE         | Proxy mode, can be either "azure" or "openai"                 | azure            | No       |
-| AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2024-12-01-preview      | No       |
-| AZURE_OPENAI_MODELS_APIVERSION  | Azure OpenAI API version (for fetching models)                | 2024-10-21       | No       |
-| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API)                | preview          | No       |
-| AZURE_OPENAI_MODEL_MAPPER       | Comma-separated list of model=deployment pairs                 |                  | No       |
-| AZURE_AI_STUDIO_DEPLOYMENTS     | Comma-separated list of serverless deployments                 |                  | No       |
-| AZURE_OPENAI_KEY_\*             | API keys for serverless deployments (replace \* with uppercase model name) |                  | No       |
+| Parameter | Description | Default Value | Required |
+| :-- | :-- | :-- | :-- |
+| AZURE_OPENAI_ENDPOINT | Azure OpenAI Endpoint |  | Yes |
+| AZURE_OPENAI_PROXY_ADDRESS | Service listening address | 0.0.0.0:11437 | No |
+| AZURE_OPENAI_PROXY_MODE | Proxy mode, can be either "azure" or "openai" | azure | No |
+| AZURE_OPENAI_APIVERSION | Azure OpenAI API version (for general operations) | 2024-12-01-preview | No |
+| AZURE_OPENAI_MODELS_APIVERSION | Azure OpenAI API version (for fetching models) | 2024-10-21 | No |
+| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API) | preview | No |
+| AZURE_ANTHROPIC_ENDPOINT | Override Anthropic endpoint (defaults to https://<resource>.services.ai.azure.com/anthropic) |  | No |
+| AZURE_ANTHROPIC_APIVERSION | Anthropic Messages API version | 2023-06-01 | No |
+| AZURE_OPENAI_MODEL_MAPPER | Comma-separated list of model=deployment pairs |  | No |
+| AZURE_AI_STUDIO_DEPLOYMENTS | Comma-separated list of serverless deployments |  | No |
+| AZURE_OPENAI_KEY_* | API keys for serverless deployments (replace * with uppercase model name) |  | No |
 
 ## Usage
 
