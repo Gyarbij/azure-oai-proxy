@@ -17,14 +17,15 @@ import (
 )
 
 var (
-	AzureOpenAIAPIVersion          = "2025-04-01-preview" // API version for proxying requests
-	AzureOpenAIModelsAPIVersion    = "2024-10-21"         // API version for fetching models
-	AzureOpenAIResponsesAPIVersion = "preview"            // API version for Responses API
-	AzureOpenAIEndpoint            = ""
-	AzureAnthropicEndpoint         = ""
-	AzureAnthropicAPIVersion       = "2023-06-01"
-	ServerlessDeploymentInfo       = make(map[string]ServerlessDeployment)
-	AzureOpenAIModelMapper         = make(map[string]string)
+	AzureOpenAIAPIVersion            = "2025-04-01-preview" // API version for proxying requests
+	AzureOpenAIModelsAPIVersion      = "2024-10-21"         // API version for fetching models
+	AzureOpenAIResponsesAPIVersion   = "preview"            // API version for Responses API
+	AzureOpenAIEndpoint              = ""
+	AzureAnthropicEndpoint           = ""
+	AzureAnthropicAPIVersion         = "2023-06-01"
+	ServerlessDeploymentInfo         = make(map[string]ServerlessDeployment)
+	AzureOpenAIModelMapper           = make(map[string]string)
+	OpenAIStreamingDeltaContentArray bool
 )
 
 type ServerlessDeployment struct {
@@ -68,6 +69,16 @@ func init() {
 					}
 				}
 			}
+		}
+	}
+
+	if v := os.Getenv("OPENAI_STREAMING_CONTENT_ARRAY"); v != "" {
+		normalized := strings.ToLower(strings.TrimSpace(v))
+		switch normalized {
+		case "1", "true", "yes", "on":
+			OpenAIStreamingDeltaContentArray = true
+		default:
+			OpenAIStreamingDeltaContentArray = false
 		}
 	}
 
