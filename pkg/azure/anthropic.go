@@ -552,7 +552,12 @@ func (c *AnthropicStreamingConverter) handleDelta(data string) {
 			{
 				"index": 0,
 				"delta": map[string]interface{}{
-					"content": text,
+					"content": []map[string]interface{}{
+						{
+							"type": "output_text",
+							"text": text,
+						},
+					},
 				},
 				"finish_reason": nil,
 			},
