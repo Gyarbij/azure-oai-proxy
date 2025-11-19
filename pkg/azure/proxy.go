@@ -512,7 +512,7 @@ func convertResponsesToChatCompletion(res *http.Response) {
 	}
 
 	// Check if it's a streaming response
-	if res.Header.Get("Content-Type") == "text/event-stream" {
+	if strings.Contains(res.Header.Get("Content-Type"), "text/event-stream") {
 		// For streaming, we need to handle it differently
 		res.Body = io.NopCloser(bytes.NewBuffer(body))
 		return
