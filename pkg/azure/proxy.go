@@ -62,6 +62,9 @@ func init() {
 	AzureOpenAIModelMapper = map[string]string{
 		"o1-preview":                  "o1-preview",
 		"o1-mini-2024-09-12":          "o1-mini-2024-09-12",
+		"gpt-5":                       "gpt-5",
+		"gpt-5-pro":                   "gpt-5-pro",
+		"gpt-5-mini":                  "gpt-5-mini",
 		"gpt-4o":                      "gpt-4o",
 		"gpt-4o-2024-05-13":           "gpt-4o-2024-05-13",
 		"gpt-4o-2024-08-06":           "gpt-4o-2024-08-06",
@@ -103,6 +106,12 @@ func init() {
 		"tts-hd-001":                  "tts-hd-001",
 		"whisper":                     "whisper-001",
 		"whisper-001":                 "whisper-001",
+		// Claude models on Azure AI Foundry
+		"claude-3-5-sonnet":           "claude-3-5-sonnet",
+		"claude-3.5-sonnet":           "claude-3-5-sonnet",
+		"claude-3-opus":               "claude-3-opus",
+		"claude-3-sonnet":             "claude-3-sonnet",
+		"claude-3-haiku":              "claude-3-haiku",
 	}
 
 	log.Printf("Loaded ServerlessDeploymentInfo: %+v", ServerlessDeploymentInfo)
@@ -196,11 +205,72 @@ func handleServerlessRequest(req *http.Request, info ServerlessDeployment, model
 	log.Printf("Using serverless deployment for %s", model)
 }
 
+// handleGPT5Request handles requests for GPT-5 models
+// GPT-5 uses: /openai/deployments/{deployment-name}/v1/chat/completions
+func handleGPT5Request(req *http.Request, deployment string) {
+	log.Printf("Handling GPT-5 model request for deployment: %s", deployment)
+
+	// Set the path with v1 prefix for GPT-5 models
+	switch {
+	case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
+		req.URL.Path = path.Join("/openai/deployments", deployment, "v1/chat/completions")
+	case strings.HasPrefix(req.URL.Path, "/v1/completions"):
+		req.URL.Path = path.Join("/openai/deployments", deployment, "v1/completions")
+	default:
+		// For other endpoints, use standard format
+		req.URL.Path = path.Join("/openai/deployments", deployment, "v1", strings.TrimPrefix(req.URL.Path, "/v1/"))
+	}
+
+	// Add api-version query parameter
+	query := req.URL.Query()
+	query.Add("api-version", AzureOpenAIAPIVersion)
+	req.URL.RawQuery = query.Encode()
+
+	log.Printf("GPT-5 request path: %s", req.URL.Path)
+}
+
+// handleClaudeRequest handles requests for Claude models on Azure AI Foundry
+// Claude uses: /models/{model-name}/chat/completions based on Azure AI Foundry
+func handleClaudeRequest(req *http.Request, deployment string) {
+	log.Printf("Handling Claude model request for deployment: %s", deployment)
+
+	// Claude models use a different endpoint structure on Azure AI Foundry
+	switch {
+	case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
+		// Claude endpoint: /models/{model-name}/chat/completions
+		req.URL.Path = path.Join("/models", deployment, "chat/completions")
+	case strings.HasPrefix(req.URL.Path, "/v1/completions"):
+		req.URL.Path = path.Join("/models", deployment, "completions")
+	default:
+		// For other endpoints, use the models prefix
+		req.URL.Path = path.Join("/models", deployment, strings.TrimPrefix(req.URL.Path, "/v1/"))
+	}
+
+	// Add api-version query parameter
+	query := req.URL.Query()
+	query.Add("api-version", AzureOpenAIAPIVersion)
+	req.URL.RawQuery = query.Encode()
+
+	log.Printf("Claude request path: %s", req.URL.Path)
+}
+
 func handleRegularRequest(req *http.Request, deployment string) {
 	remote, _ := url.Parse(AzureOpenAIEndpoint)
 	req.URL.Scheme = remote.Scheme
 	req.URL.Host = remote.Host
 	req.Host = remote.Host
+
+	// Check if this is a Claude model
+	if isClaudeModel(deployment) {
+		handleClaudeRequest(req, deployment)
+		return
+	}
+
+	// Check if this is a GPT-5 model
+	if isGPT5Model(deployment) {
+		handleGPT5Request(req, deployment)
+		return
+	}
 
 	// Handle Responses API endpoints
 	if strings.Contains(req.URL.Path, "/v1/responses") {
@@ -352,6 +422,18 @@ func modifyResponse(res *http.Response) error {
 	}
 
 	return nil
+}
+
+// isClaudeModel checks if the model is a Claude model
+func isClaudeModel(model string) bool {
+	modelLower := strings.ToLower(model)
+	return strings.HasPrefix(modelLower, "claude-")
+}
+
+// isGPT5Model checks if the model is a GPT-5 model
+func isGPT5Model(model string) bool {
+	modelLower := strings.ToLower(model)
+	return strings.HasPrefix(modelLower, "gpt-5")
 }
 
 // Add a function to check if a model should use Responses API
