@@ -14,7 +14,11 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
+# IDE files
 .idea
+
+# Sensible information, credentials
+.env
 
 # General
 .DS_Store
