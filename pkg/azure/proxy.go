@@ -21,6 +21,8 @@ var (
 	AzureOpenAIModelsAPIVersion    = "2024-10-21"         // API version for fetching models
 	AzureOpenAIResponsesAPIVersion = "preview"            // API version for Responses API
 	AzureOpenAIEndpoint            = ""
+	AzureAnthropicEndpoint         = ""
+	AzureAnthropicAPIVersion       = "2023-06-01"
 	ServerlessDeploymentInfo       = make(map[string]ServerlessDeployment)
 	AzureOpenAIModelMapper         = make(map[string]string)
 )
@@ -40,6 +42,17 @@ func init() {
 	}
 	if v := os.Getenv("AZURE_OPENAI_ENDPOINT"); v != "" {
 		AzureOpenAIEndpoint = v
+	}
+	if v := os.Getenv("AZURE_ANTHROPIC_ENDPOINT"); v != "" {
+		AzureAnthropicEndpoint = strings.TrimRight(v, "/")
+	}
+	if v := os.Getenv("AZURE_ANTHROPIC_APIVERSION"); v != "" {
+		AzureAnthropicAPIVersion = v
+	}
+	if AzureAnthropicEndpoint == "" && AzureOpenAIEndpoint != "" {
+		if derived := deriveAnthropicEndpoint(AzureOpenAIEndpoint); derived != "" {
+			AzureAnthropicEndpoint = derived
+		}
 	}
 
 	if v := os.Getenv("AZURE_AI_STUDIO_DEPLOYMENTS"); v != "" {
@@ -62,6 +75,8 @@ func init() {
 	AzureOpenAIModelMapper = map[string]string{
 		"o1-preview":                  "o1-preview",
 		"o1-mini-2024-09-12":          "o1-mini-2024-09-12",
+		"gpt-5":                       "gpt-5",
+		"gpt-5-pro":                   "gpt-5-pro",
 		"gpt-4o":                      "gpt-4o",
 		"gpt-4o-2024-05-13":           "gpt-4o-2024-05-13",
 		"gpt-4o-2024-08-06":           "gpt-4o-2024-08-06",
@@ -129,13 +144,7 @@ func HandleToken(req *http.Request) {
 		log.Printf("Using serverless deployment authentication for %s", model)
 	} else {
 		// For regular Azure OpenAI deployments, use the api-key
-		apiKey := req.Header.Get("api-key")
-		if apiKey == "" {
-			apiKey = req.Header.Get("Authorization")
-			if strings.HasPrefix(apiKey, "Bearer ") {
-				apiKey = strings.TrimPrefix(apiKey, "Bearer ")
-			}
-		}
+		apiKey := extractAPIKey(req)
 		if apiKey == "" {
 			log.Printf("Warning: No api-key or Authorization header found for deployment: %s", model)
 		} else {
@@ -151,6 +160,14 @@ func makeDirector() func(*http.Request) {
 		model := getModelFromRequest(req)
 		originURL := req.URL.String()
 		log.Printf("Original request URL: %s for model: %s", originURL, model)
+
+		if isClaudeModel(model) {
+			if err := handleClaudeProxyRequest(req, model); err != nil {
+				log.Printf("Claude proxy preparation failed: %v", err)
+			}
+			log.Printf("Proxying request [%s] %s -> %s", model, originURL, req.URL.String())
+			return
+		}
 
 		// Check if this is a chat completion request for a model that should use Responses API
 		if strings.HasPrefix(req.URL.Path, "/v1/chat/completions") && shouldUseResponsesAPI(model) {
@@ -169,14 +186,27 @@ func makeDirector() func(*http.Request) {
 		if info, ok := ServerlessDeploymentInfo[modelLower]; ok {
 			handleServerlessRequest(req, info, model)
 		} else if azureModel, ok := AzureOpenAIModelMapper[modelLower]; ok {
-			handleRegularRequest(req, azureModel)
+			handleRegularRequest(req, azureModel, model)
 		} else {
 			log.Printf("Warning: Unknown model %s, treating as regular Azure OpenAI deployment", model)
-			handleRegularRequest(req, model)
+			handleRegularRequest(req, model, model)
 		}
 
 		log.Printf("Proxying request [%s] %s -> %s", model, originURL, req.URL.String())
 	}
+}
+
+func extractAPIKey(req *http.Request) string {
+	apiKey := req.Header.Get("api-key")
+	if apiKey == "" {
+		authHeader := req.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			apiKey = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if authHeader != "" {
+			apiKey = authHeader
+		}
+	}
+	return strings.TrimSpace(apiKey)
 }
 
 func handleServerlessRequest(req *http.Request, info ServerlessDeployment, model string) {
@@ -196,7 +226,7 @@ func handleServerlessRequest(req *http.Request, info ServerlessDeployment, model
 	log.Printf("Using serverless deployment for %s", model)
 }
 
-func handleRegularRequest(req *http.Request, deployment string) {
+func handleRegularRequest(req *http.Request, deployment, model string) {
 	remote, _ := url.Parse(AzureOpenAIEndpoint)
 	req.URL.Scheme = remote.Scheme
 	req.URL.Host = remote.Host
@@ -219,25 +249,26 @@ func handleRegularRequest(req *http.Request, deployment string) {
 		query.Set("api-version", AzureOpenAIResponsesAPIVersion)
 		req.URL.RawQuery = query.Encode()
 	} else {
+		requiresV1 := useOpenAIV1Paths(model)
 		// Existing logic for other endpoints
 		switch {
 		case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
-			req.URL.Path = path.Join("/openai/deployments", deployment, "chat/completions")
+			req.URL.Path = buildDeploymentPath(deployment, requiresV1, "chat/completions")
 		case strings.HasPrefix(req.URL.Path, "/v1/completions"):
-			req.URL.Path = path.Join("/openai/deployments", deployment, "completions")
+			req.URL.Path = buildDeploymentPath(deployment, requiresV1, "completions")
 		case strings.HasPrefix(req.URL.Path, "/v1/embeddings"):
-			req.URL.Path = path.Join("/openai/deployments", deployment, "embeddings")
+			req.URL.Path = buildDeploymentPath(deployment, requiresV1, "embeddings")
 		case strings.HasPrefix(req.URL.Path, "/v1/images/generations"):
-			req.URL.Path = path.Join("/openai/deployments", deployment, "images/generations")
+			req.URL.Path = buildDeploymentPath(deployment, requiresV1, "images/generations")
 		case strings.HasPrefix(req.URL.Path, "/v1/audio/"):
 			// Handle audio endpoints
 			audioPath := strings.TrimPrefix(req.URL.Path, "/v1/")
-			req.URL.Path = path.Join("/openai/deployments", deployment, audioPath)
+			req.URL.Path = buildDeploymentPath(deployment, requiresV1, audioPath)
 		case strings.HasPrefix(req.URL.Path, "/v1/files"):
 			// Files API doesn't use deployment in path
 			req.URL.Path = strings.Replace(req.URL.Path, "/v1/", "/openai/", 1)
 		default:
-			req.URL.Path = path.Join("/openai/deployments", deployment, strings.TrimPrefix(req.URL.Path, "/v1/"))
+			req.URL.Path = buildDeploymentPath(deployment, requiresV1, strings.TrimPrefix(req.URL.Path, "/v1/"))
 		}
 
 		// Add api-version query parameter for non-Responses API
@@ -252,6 +283,15 @@ func handleRegularRequest(req *http.Request, deployment string) {
 		log.Printf("Warning: No api-key found for regular deployment: %s", deployment)
 	}
 	log.Printf("Using regular Azure OpenAI deployment for %s", deployment)
+}
+
+func buildDeploymentPath(deployment string, includeV1 bool, segments ...string) string {
+	parts := []string{"openai", "deployments", deployment}
+	if includeV1 {
+		parts = append(parts, "v1")
+	}
+	parts = append(parts, segments...)
+	return "/" + path.Join(parts...)
 }
 
 func getModelFromRequest(req *http.Request) string {
@@ -302,6 +342,8 @@ func sanitizeHeaders(headers http.Header) http.Header {
 }
 
 func modifyResponse(res *http.Response) error {
+	provider := res.Request.Header.Get("X-Proxy-Provider")
+
 	// Check if this is a streaming response that needs conversion
 	if res.Header.Get("Content-Type") == "text/event-stream" {
 		res.Header.Set("X-Accel-Buffering", "no")
@@ -310,27 +352,31 @@ func modifyResponse(res *http.Response) error {
 
 		// Check if this needs streaming conversion
 		if origPath := res.Request.Header.Get("X-Original-Path"); origPath == "/v1/chat/completions" {
-			// Get the model from the request
 			model := res.Request.Header.Get("X-Model")
 			if model == "" {
 				model = "unknown"
 			}
 
-			// Create a pipe for the conversion
 			pr, pw := io.Pipe()
 
-			// Start the conversion in a goroutine
 			go func() {
 				defer pw.Close()
 				defer res.Body.Close()
 
-				converter := NewStreamingResponseConverter(res.Body, pw, model)
-				if err := converter.Convert(); err != nil {
+				var err error
+				switch provider {
+				case "anthropic":
+					converter := NewAnthropicStreamingConverter(res.Body, pw, model)
+					err = converter.Convert()
+				default:
+					converter := NewStreamingResponseConverter(res.Body, pw, model)
+					err = converter.Convert()
+				}
+				if err != nil {
 					log.Printf("Streaming conversion error: %v", err)
 				}
 			}()
 
-			// Replace the response body
 			res.Body = pr
 		}
 
@@ -343,6 +389,8 @@ func modifyResponse(res *http.Response) error {
 		if origPath := res.Request.Header.Get("X-Original-Path"); origPath == "/v1/chat/completions" {
 			convertResponsesToChatCompletion(res)
 		}
+	} else if provider == "anthropic" && res.StatusCode == http.StatusOK {
+		convertAnthropicResponse(res)
 	}
 
 	if res.StatusCode >= 400 {
@@ -368,6 +416,11 @@ func shouldUseResponsesAPI(model string) bool {
 		}
 	}
 	return false
+}
+
+func useOpenAIV1Paths(model string) bool {
+	modelLower := strings.ToLower(model)
+	return strings.HasPrefix(modelLower, "gpt-5")
 }
 
 // Function to convert chat completion request to responses format
