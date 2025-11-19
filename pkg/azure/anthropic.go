@@ -477,20 +477,57 @@ func (c *AnthropicStreamingConverter) Convert() error {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "event:") {
 			eventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			log.Printf("Anthropic streaming event: %s", eventType)
 			continue
 		}
 		if strings.HasPrefix(line, "data:") {
 			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			switch eventType {
+			case "message_start":
+				c.handleMessageStart(data)
+			case "content_block_start":
+				c.handleContentBlockStart()
 			case "content_block_delta":
 				c.handleDelta(data)
 			case "message_stop":
 				c.handleStop()
+			case "ping":
+				// Ignore ping events
+			default:
+				// Log unknown events for debugging
+				if eventType != "" && eventType != "content_block_stop" && eventType != "message_delta" {
+					log.Printf("Unhandled Anthropic streaming event: %s", eventType)
+				}
 			}
 		}
 	}
 
 	return scanner.Err()
+}
+
+func (c *AnthropicStreamingConverter) handleMessageStart(data string) {
+	// Send initial chunk with role
+	chunk := map[string]interface{}{
+		"id":      fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano()),
+		"object":  "chat.completion.chunk",
+		"created": time.Now().Unix(),
+		"model":   c.model,
+		"choices": []map[string]interface{}{
+			{
+				"index": 0,
+				"delta": map[string]interface{}{
+					"role": "assistant",
+				},
+				"finish_reason": nil,
+			},
+		},
+	}
+	c.writeChunk(chunk)
+}
+
+func (c *AnthropicStreamingConverter) handleContentBlockStart() {
+	// OpenAI format doesn't need a separate content block start event
+	// The role is sent in message_start, content follows in deltas
 }
 
 func (c *AnthropicStreamingConverter) handleDelta(data string) {
