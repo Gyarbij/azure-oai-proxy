@@ -180,9 +180,22 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
+	// Handle authentication for the models endpoint
+	// Extract api-key from Authorization header if present
+	apiKey := originalReq.Header.Get("api-key")
+	if apiKey == "" {
+		authHeader := originalReq.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			apiKey = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if authHeader != "" {
+			apiKey = authHeader
+		}
+	}
 
-	azure.HandleToken(req)
+	// Set the api-key header for Azure OpenAI
+	if apiKey != "" {
+		req.Header.Set("api-key", apiKey)
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
