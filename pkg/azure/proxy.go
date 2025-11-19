@@ -152,6 +152,19 @@ func makeDirector() func(*http.Request) {
 		originURL := req.URL.String()
 		log.Printf("Original request URL: %s for model: %s", originURL, model)
 
+		// Validate the model
+		if !isValidAzureModel(model) {
+			log.Printf("Error: Invalid or unsupported model: %s", model)
+		}
+
+		// Check if this is a Claude model
+		if isClaudeModel(model) {
+			log.Printf("Detected Claude model: %s", model)
+			handleClaudeRequest(req, model)
+			log.Printf("Proxying Claude request [%s] %s -> %s", model, originURL, req.URL.String())
+			return
+		}
+
 		// Check if this is a chat completion request for a model that should use Responses API
 		if strings.HasPrefix(req.URL.Path, "/v1/chat/completions") && shouldUseResponsesAPI(model) {
 			log.Printf("Redirecting %s from chat/completions to responses API", model)
@@ -194,6 +207,58 @@ func handleServerlessRequest(req *http.Request, info ServerlessDeployment, model
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
 	req.Header.Del("api-key")
 	log.Printf("Using serverless deployment for %s", model)
+}
+
+// handleClaudeRequest handles requests for Claude models from Azure AI Foundry
+func handleClaudeRequest(req *http.Request, model string) {
+	modelLower := strings.ToLower(model)
+	
+	// Handle the token first
+	HandleToken(req)
+	
+	// Check if it's configured as a serverless deployment
+	if info, ok := ServerlessDeploymentInfo[modelLower]; ok {
+		// Claude models in Azure AI Foundry use the serverless endpoint format
+		req.URL.Scheme = "https"
+		req.URL.Host = fmt.Sprintf("%s.%s.models.ai.azure.com", info.Name, info.Region)
+		req.Host = req.URL.Host
+		
+		// Claude models use different endpoints based on the operation
+		// Convert OpenAI-style paths to Claude-compatible paths
+		switch {
+		case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
+			// Claude uses /v1/chat/completions for chat
+			req.URL.Path = "/v1/chat/completions"
+		case strings.HasPrefix(req.URL.Path, "/v1/completions"):
+			// Claude also supports completions
+			req.URL.Path = "/v1/completions"
+		default:
+			// Keep the path as-is for other endpoints
+			if !strings.HasPrefix(req.URL.Path, "/v1/") {
+				req.URL.Path = "/v1" + req.URL.Path
+			}
+		}
+		
+		// Set the correct authorization header for Claude serverless
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
+		req.Header.Del("api-key")
+		
+		// Claude models may need specific API version parameters
+		query := req.URL.Query()
+		if query.Get("api-version") == "" {
+			// Use a compatible API version for Claude
+			query.Set("api-version", "2024-05-01-preview")
+		}
+		req.URL.RawQuery = query.Encode()
+		
+		log.Printf("Using Claude serverless deployment for %s at %s", model, req.URL.Host)
+	} else {
+		// If not configured as serverless, log an error
+		log.Printf("Error: Claude model %s is not configured as a serverless deployment", model)
+		log.Printf("Please add it to AZURE_AI_STUDIO_DEPLOYMENTS environment variable")
+		log.Printf("Example: AZURE_AI_STUDIO_DEPLOYMENTS=claude-3-5-sonnet=Claude-3-5-Sonnet:eastus")
+		log.Printf("And set the API key: AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-key")
+	}
 }
 
 func handleRegularRequest(req *http.Request, deployment string) {
@@ -367,6 +432,60 @@ func shouldUseResponsesAPI(model string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// isClaudeModel checks if a model is a Claude model
+func isClaudeModel(model string) bool {
+	modelLower := strings.ToLower(model)
+	claudePrefixes := []string{
+		"claude-",
+		"claude",
+		"anthropic.claude",
+	}
+	
+	for _, prefix := range claudePrefixes {
+		if strings.HasPrefix(modelLower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// isValidAzureModel checks if a model is valid for Azure OpenAI
+func isValidAzureModel(model string) bool {
+	modelLower := strings.ToLower(model)
+	
+	// Check if it's a Claude model (handled separately)
+	if isClaudeModel(model) {
+		return true
+	}
+	
+	// Check if it's a serverless deployment
+	if _, ok := ServerlessDeploymentInfo[modelLower]; ok {
+		return true
+	}
+	
+	// Check if it's in the model mapper
+	if _, ok := AzureOpenAIModelMapper[modelLower]; ok {
+		return true
+	}
+	
+	// Check for known valid model prefixes
+	validPrefixes := []string{
+		"gpt-3", "gpt-4", "o1", "o3", "o4",
+		"text-embedding", "dall-e", "tts", "whisper",
+		"babbage", "davinci", "codex",
+	}
+	
+	for _, prefix := range validPrefixes {
+		if strings.HasPrefix(modelLower, prefix) {
+			return true
+		}
+	}
+	
+	// Log warning for unknown models
+	log.Printf("Warning: Unknown model '%s' - this may not be supported by Azure OpenAI", model)
 	return false
 }
 
