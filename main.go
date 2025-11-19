@@ -304,7 +304,7 @@ func handleAzureProxy(c *gin.Context) {
 	}
 	server := azure.NewOpenAIReverseProxy()
 	server.ServeHTTP(c.Writer, c.Request)
-	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
+	if strings.Contains(c.Writer.Header().Get("Content-Type"), "text/event-stream") {
 		if _, err := c.Writer.Write([]byte("\n")); err != nil {
 			log.Printf("rewrite azure response error: %v", err)
 		}
