@@ -85,7 +85,7 @@ func modifyResponse(res *http.Response) error {
     }
     
     // Handle streaming responses
-    if res.Header.Get("Content-Type") == "text/event-stream" {
+    if strings.Contains(res.Header.Get("Content-Type"), "text/event-stream") {
         res.Header.Set("X-Accel-Buffering", "no")
         res.Header.Set("Cache-Control", "no-cache")
         res.Header.Set("Connection", "keep-alive")

@@ -345,7 +345,9 @@ func modifyResponse(res *http.Response) error {
 	provider := res.Request.Header.Get("X-Proxy-Provider")
 
 	// Check if this is a streaming response that needs conversion
-	if res.Header.Get("Content-Type") == "text/event-stream" {
+	contentType := res.Header.Get("Content-Type")
+	log.Printf("modifyResponse: provider=%s, contentType=%s, status=%d, path=%s", provider, contentType, res.StatusCode, res.Request.URL.Path)
+	if strings.Contains(contentType, "text/event-stream") {
 		res.Header.Set("X-Accel-Buffering", "no")
 		res.Header.Set("Cache-Control", "no-cache")
 		res.Header.Set("Connection", "keep-alive")
@@ -387,10 +389,14 @@ func modifyResponse(res *http.Response) error {
 	if strings.Contains(res.Request.URL.Path, "/openai/v1/responses") && res.StatusCode == 200 {
 		// Check if the original request was for chat completions
 		if origPath := res.Request.Header.Get("X-Original-Path"); origPath == "/v1/chat/completions" {
+			log.Printf("Converting Responses API to chat completion")
 			convertResponsesToChatCompletion(res)
 		}
 	} else if provider == "anthropic" && res.StatusCode == http.StatusOK {
+		log.Printf("Converting Anthropic response to OpenAI format")
 		convertAnthropicResponse(res)
+	} else {
+		log.Printf("No conversion needed: provider=%s, status=%d", provider, res.StatusCode)
 	}
 
 	if res.StatusCode >= 400 {
@@ -511,7 +517,7 @@ func convertResponsesToChatCompletion(res *http.Response) {
 	}
 
 	// Check if it's a streaming response
-	if res.Header.Get("Content-Type") == "text/event-stream" {
+	if strings.Contains(res.Header.Get("Content-Type"), "text/event-stream") {
 		// For streaming, we need to handle it differently
 		res.Body = io.NopCloser(bytes.NewBuffer(body))
 		return
