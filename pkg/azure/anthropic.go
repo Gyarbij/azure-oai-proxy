@@ -543,6 +543,18 @@ func (c *AnthropicStreamingConverter) handleDelta(data string) {
 		return
 	}
 
+	var contentPayload interface{}
+	if OpenAIStreamingDeltaContentArray {
+		contentPayload = []map[string]interface{}{
+			{
+				"type": "output_text",
+				"text": text,
+			},
+		}
+	} else {
+		contentPayload = text
+	}
+
 	chunk := map[string]interface{}{
 		"id":      fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano()),
 		"object":  "chat.completion.chunk",
@@ -552,12 +564,7 @@ func (c *AnthropicStreamingConverter) handleDelta(data string) {
 			{
 				"index": 0,
 				"delta": map[string]interface{}{
-					"content": []map[string]interface{}{
-						{
-							"type": "output_text",
-							"text": text,
-						},
-					},
+					"content": contentPayload,
 				},
 				"finish_reason": nil,
 			},
