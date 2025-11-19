@@ -157,11 +157,16 @@ func makeDirector() func(*http.Request) {
 			log.Printf("Error: Invalid or unsupported model: %s", model)
 		}
 
-		// Check if this is a Claude model
-		if isClaudeModel(model) {
-			log.Printf("Detected Claude model: %s", model)
-			handleClaudeRequest(req, model)
-			log.Printf("Proxying Claude request [%s] %s -> %s", model, originURL, req.URL.String())
+		// Check if this is a serverless-only model (Claude, GPT-5, etc.)
+		if isServerlessOnlyModel(model) {
+			if isClaudeModel(model) {
+				log.Printf("Detected Claude model: %s", model)
+				handleClaudeRequest(req, model)
+			} else {
+				log.Printf("Detected serverless-only model: %s", model)
+				handleServerlessOnlyRequest(req, model)
+			}
+			log.Printf("Proxying serverless request [%s] %s -> %s", model, originURL, req.URL.String())
 			return
 		}
 
@@ -263,6 +268,53 @@ func handleClaudeRequest(req *http.Request, model string) {
 		log.Printf("Please add it to AZURE_AI_STUDIO_DEPLOYMENTS environment variable")
 		log.Printf("Example: AZURE_AI_STUDIO_DEPLOYMENTS=claude-3-5-sonnet=Claude-3-5-Sonnet:eastus")
 		log.Printf("And set the API key: AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-key")
+	}
+}
+
+// handleServerlessOnlyRequest handles requests for serverless-only models like GPT-5 Pro
+func handleServerlessOnlyRequest(req *http.Request, model string) {
+	modelLower := strings.ToLower(model)
+	
+	// Handle the token first
+	HandleToken(req)
+	
+	// Check if it's configured as a serverless deployment
+	if info, ok := ServerlessDeploymentInfo[modelLower]; ok {
+		// Serverless models use the direct endpoint format
+		req.URL.Scheme = "https"
+		req.URL.Host = fmt.Sprintf("%s.%s.models.ai.azure.com", info.Name, info.Region)
+		req.Host = req.URL.Host
+		
+		// Keep the OpenAI-compatible paths
+		switch {
+		case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
+			req.URL.Path = "/v1/chat/completions"
+		case strings.HasPrefix(req.URL.Path, "/v1/completions"):
+			req.URL.Path = "/v1/completions"
+		case strings.HasPrefix(req.URL.Path, "/v1/embeddings"):
+			req.URL.Path = "/v1/embeddings"
+		default:
+			// Keep the path as-is for other endpoints
+			if !strings.HasPrefix(req.URL.Path, "/v1/") {
+				req.URL.Path = "/v1" + req.URL.Path
+			}
+		}
+		
+		// Set the correct authorization header for serverless
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
+		req.Header.Del("api-key")
+		
+		log.Printf("Using serverless deployment for %s at %s", model, req.URL.Host)
+	} else {
+		// If not configured as serverless, treat as an error but set up a dummy endpoint
+		req.URL.Scheme = "https"
+		req.URL.Host = "unconfigured.invalid"
+		req.URL.Path = "/error/serverless-not-configured"
+		
+		log.Printf("Error: Model %s requires serverless deployment but is not configured", model)
+		log.Printf("Please add it to AZURE_AI_STUDIO_DEPLOYMENTS environment variable")
+		log.Printf("Example: AZURE_AI_STUDIO_DEPLOYMENTS=%s=YourDeploymentName:eastus", modelLower)
+		log.Printf("And set the API key: AZURE_OPENAI_KEY_%s=your-key", strings.ToUpper(strings.ReplaceAll(modelLower, "-", "_")))
 	}
 }
 
@@ -457,12 +509,35 @@ func isClaudeModel(model string) bool {
 	return false
 }
 
+// isServerlessOnlyModel checks if a model requires serverless deployment (like GPT-5 Pro, Claude, etc.)
+func isServerlessOnlyModel(model string) bool {
+	modelLower := strings.ToLower(model)
+	
+	// Check if it's Claude
+	if isClaudeModel(model) {
+		return true
+	}
+	
+	// GPT-5 series and other serverless-only models
+	serverlessOnlyPrefixes := []string{
+		"gpt-5",
+	}
+	
+	for _, prefix := range serverlessOnlyPrefixes {
+		if strings.HasPrefix(modelLower, prefix) {
+			return true
+		}
+	}
+	
+	return false
+}
+
 // isValidAzureModel checks if a model is valid for Azure OpenAI
 func isValidAzureModel(model string) bool {
 	modelLower := strings.ToLower(model)
 	
-	// Check if it's a Claude model (handled separately)
-	if isClaudeModel(model) {
+	// Check if it's a serverless-only model (handled separately)
+	if isServerlessOnlyModel(model) {
 		return true
 	}
 	

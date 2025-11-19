@@ -85,12 +85,21 @@ The proxy automatically detects model capabilities and routes requests appropria
 - **O3 Series**: o3, o3-pro, o3-mini
 - **O4 Series**: o4, o4-mini
 
-### Claude Models (Azure AI Foundry)
+### Serverless-Only Models (Azure AI Foundry)
+
+#### GPT-5 Series
+- **GPT-5 Pro**: gpt-5-pro
+
+*GPT-5 models are available as serverless deployments in Azure AI Foundry. They use direct endpoint URLs with Bearer token authentication.*
+
+#### Claude Models
 - **Claude 3.5 Series**: claude-3-5-sonnet, claude-3-5-haiku
 - **Claude 3 Series**: claude-3-opus, claude-3-sonnet, claude-3-haiku
 - **Claude Instant**: claude-instant
 
-*Claude models are supported through Azure AI Foundry's serverless endpoints. Configure them using `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable.*
+*Claude models are supported through Azure AI Foundry's serverless endpoints.*
+
+**Note**: Serverless models must be configured using `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable and require separate API keys.
 
 *Reasoning models automatically use Azure's Responses API while maintaining OpenAI chat completion interface compatibility.*
 
@@ -230,6 +239,34 @@ curl http://localhost:11437/v1/responses \
 
 For serverless deployments, use the model name as defined in your `AZURE_AI_STUDIO_DEPLOYMENTS` configuration.
 
+### Using GPT-5 Pro
+
+GPT-5 Pro is available through Azure AI Foundry as a serverless deployment. To use GPT-5 Pro:
+
+1. **Deploy GPT-5 Pro in Azure AI Foundry**: Deploy the model through the Azure AI Foundry portal to get your endpoint and API key.
+
+2. **Configure the proxy**: Add your GPT-5 Pro deployment to the `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable:
+
+```bash
+AZURE_AI_STUDIO_DEPLOYMENTS=gpt-5-pro=GPT-5-Pro:eastus
+AZURE_OPENAI_KEY_GPT-5-PRO=your-gpt5-api-key
+```
+
+3. **Make requests**: Use the standard OpenAI-compatible format:
+
+```sh
+curl http://localhost:11437/v1/chat/completions \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer your-gpt5-api-key" \
+ -d '{
+  "model": "gpt-5-pro",
+  "messages": [{"role": "user", "content": "Hello!"}],
+  "max_completion_tokens": 16384
+ }'
+```
+
+**Note**: GPT-5 Pro uses `max_completion_tokens` instead of `max_tokens`. The proxy maintains OpenAI API compatibility while routing to the correct Azure endpoint.
+
 ### Using Claude Models
 
 Claude models from Anthropic are available through Azure AI Foundry. To use Claude models:
@@ -354,12 +391,13 @@ When using reasoning models, you get access to:
 -   Monitor your Azure OpenAI usage and costs, especially when using this proxy in high-traffic scenarios.
 -   Reasoning models may have higher latency due to their advanced processing capabilities.
 -   Some reasoning models may have usage limits or require special access permissions.
--   Claude models require separate deployment in Azure AI Foundry and appropriate API keys.
--   Invalid or unsupported model names (e.g., "gpt-5-pro") will be logged with warnings.
+-   Serverless-only models (GPT-5 Pro, Claude) require separate deployment in Azure AI Foundry and appropriate API keys.
+-   Configure serverless models using `AZURE_AI_STUDIO_DEPLOYMENTS` with the format: `model-name=DeploymentName:region`.
 
 ## Recently Updated
+-   **2025-XX-XX** Added support for GPT-5 Pro and other serverless-only models through Azure AI Foundry with direct endpoint routing.
 -   **2025-XX-XX** Added support for Anthropic's Claude models through Azure AI Foundry integration with automatic model detection and routing.
--   **2025-XX-XX** Added model validation to prevent errors with unsupported models and provide better error messages.
+-   **2025-XX-XX** Added model validation to provide better error messages for unsupported models and configuration guidance for serverless deployments.
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.
