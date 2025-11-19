@@ -248,16 +248,23 @@ GPT-5 Pro is available through Azure AI Foundry as a serverless deployment. To u
 2. **Configure the proxy**: Add your GPT-5 Pro deployment to the `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable:
 
 ```bash
+# Deployment configuration (required)
 AZURE_AI_STUDIO_DEPLOYMENTS=gpt-5-pro=GPT-5-Pro:eastus
+
+# Option 1: Use a shared key for all models (recommended for same deployment)
+# Pass the key in your API requests using the Authorization header
+
+# Option 2: Use model-specific keys (optional)
 AZURE_OPENAI_KEY_GPT-5-PRO=your-gpt5-api-key
 ```
 
 3. **Make requests**: Use the standard OpenAI-compatible format:
 
 ```sh
+# Using shared key from Authorization header
 curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
- -H "Authorization: Bearer your-gpt5-api-key" \
+ -H "Authorization: Bearer your-shared-api-key" \
  -d '{
   "model": "gpt-5-pro",
   "messages": [{"role": "user", "content": "Hello!"}],
@@ -276,7 +283,13 @@ Claude models from Anthropic are available through Azure AI Foundry. To use Clau
 2. **Configure the proxy**: Add your Claude deployment to the `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable:
 
 ```bash
+# Deployment configuration (required)
 AZURE_AI_STUDIO_DEPLOYMENTS=claude-3-5-sonnet=Claude-3-5-Sonnet:eastus,claude-3-opus=Claude-3-Opus:westus
+
+# Option 1: Use a shared key for all models (recommended for same deployment)
+# Pass the key in your API requests using the Authorization header
+
+# Option 2: Use model-specific keys (optional)
 AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-claude-sonnet-api-key
 AZURE_OPENAI_KEY_CLAUDE-3-OPUS=your-claude-opus-api-key
 ```
@@ -284,9 +297,10 @@ AZURE_OPENAI_KEY_CLAUDE-3-OPUS=your-claude-opus-api-key
 3. **Make requests**: Use the OpenAI-compatible format:
 
 ```sh
+# Using shared key from Authorization header
 curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
- -H "Authorization: Bearer your-claude-api-key" \
+ -H "Authorization: Bearer your-shared-api-key" \
  -d '{
   "model": "claude-3-5-sonnet",
   "messages": [{"role": "user", "content": "Explain quantum computing"}],
@@ -302,7 +316,7 @@ curl http://localhost:11437/v1/chat/completions \
 - Claude 3 Haiku (claude-3-haiku)
 - Claude Instant (claude-instant)
 
-The proxy automatically detects Claude models and routes them to the appropriate Azure AI Foundry endpoints.
+**Shared Key Support**: When multiple serverless models (GPT-5 Pro, Claude, etc.) are deployed in the same Azure AI Foundry instance, you can use a single shared API key by passing it in the `Authorization` header of your requests. The proxy automatically detects the model type and routes to the correct endpoint while using the shared key for authentication.
 
 ## Model Mapping Mechanism (Used for Custom deployment names)
 

@@ -123,10 +123,30 @@ func HandleToken(req *http.Request) {
 	modelLower := strings.ToLower(model)
 	// Check if it's a serverless deployment
 	if info, ok := ServerlessDeploymentInfo[modelLower]; ok {
-		// Set the correct authorization header for serverless
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
-		req.Header.Del("api-key")
-		log.Printf("Using serverless deployment authentication for %s", model)
+		// Use model-specific key if configured, otherwise use the key from the request
+		var apiKey string
+		if info.Key != "" {
+			// Model-specific key is configured
+			apiKey = info.Key
+			log.Printf("Using model-specific key for serverless deployment: %s", model)
+		} else {
+			// No model-specific key, use the key from the request
+			apiKey = req.Header.Get("api-key")
+			if apiKey == "" {
+				authHeader := req.Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					apiKey = strings.TrimPrefix(authHeader, "Bearer ")
+				}
+			}
+			log.Printf("Using shared key from request for serverless deployment: %s", model)
+		}
+		
+		if apiKey != "" {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+			req.Header.Del("api-key")
+		} else {
+			log.Printf("Warning: No API key found for serverless deployment: %s", model)
+		}
 	} else {
 		// For regular Azure OpenAI deployments, use the api-key
 		apiKey := req.Header.Get("api-key")
@@ -208,9 +228,7 @@ func handleServerlessRequest(req *http.Request, info ServerlessDeployment, model
 		}
 	}
 
-	// Set the correct authorization header for serverless
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
-	req.Header.Del("api-key")
+	// Authorization header is already set by HandleToken, no need to override
 	log.Printf("Using serverless deployment for %s", model)
 }
 
@@ -244,9 +262,7 @@ func handleClaudeRequest(req *http.Request, model string) {
 			}
 		}
 		
-		// Set the correct authorization header for Claude serverless
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
-		req.Header.Del("api-key")
+		// Authorization header is already set by HandleToken, no need to override
 		
 		// Claude models may need specific API version parameters
 		query := req.URL.Query()
@@ -267,7 +283,7 @@ func handleClaudeRequest(req *http.Request, model string) {
 		log.Printf("Error: Claude model %s is not configured as a serverless deployment", model)
 		log.Printf("Please add it to AZURE_AI_STUDIO_DEPLOYMENTS environment variable")
 		log.Printf("Example: AZURE_AI_STUDIO_DEPLOYMENTS=claude-3-5-sonnet=Claude-3-5-Sonnet:eastus")
-		log.Printf("And set the API key: AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-key")
+		log.Printf("And set the API key: AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-key (optional if using shared key)")
 	}
 }
 
@@ -300,9 +316,7 @@ func handleServerlessOnlyRequest(req *http.Request, model string) {
 			}
 		}
 		
-		// Set the correct authorization header for serverless
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", info.Key))
-		req.Header.Del("api-key")
+		// Authorization header is already set by HandleToken, no need to override
 		
 		log.Printf("Using serverless deployment for %s at %s", model, req.URL.Host)
 	} else {
@@ -314,7 +328,7 @@ func handleServerlessOnlyRequest(req *http.Request, model string) {
 		log.Printf("Error: Model %s requires serverless deployment but is not configured", model)
 		log.Printf("Please add it to AZURE_AI_STUDIO_DEPLOYMENTS environment variable")
 		log.Printf("Example: AZURE_AI_STUDIO_DEPLOYMENTS=%s=YourDeploymentName:eastus", modelLower)
-		log.Printf("And set the API key: AZURE_OPENAI_KEY_%s=your-key", strings.ToUpper(strings.ReplaceAll(modelLower, "-", "_")))
+		log.Printf("And set the API key: AZURE_OPENAI_KEY_%s=your-key (optional if using shared key)", strings.ToUpper(strings.ReplaceAll(modelLower, "-", "_")))
 	}
 }
 
