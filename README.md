@@ -14,6 +14,7 @@ Azure OAI Proxy is a lightweight, high-performance proxy server that enables sea
 
 -   ✅ **API Compatibility**: Translates requests from OpenAI API format to Azure OpenAI Services format on-the-fly.
 -   🧠 **Advanced Reasoning Model Support**: Full support for Azure's advanced reasoning models (O1, O3, O4 series) through automatic Responses API integration.
+-   🤝 **Azure Foundry Claude Support**: Seamlessly routes Claude deployments that live in Azure AI Foundry's Anthropic endpoint while retaining OpenAI-compatible request and response shapes.
 -   📡 **Streaming Support**: Real-time streaming for both traditional chat models and reasoning models with proper format conversion.
 -   🗺️ **Model Mapping**: Automatically maps OpenAI model names to Azure scheme, with a comprehensive failsafe list.
 -   🔄 **Dynamic Model List**: Fetches available models directly from your Azure OpenAI deployment using a dedicated API version.
@@ -90,17 +91,19 @@ The proxy automatically detects model capabilities and routes requests appropria
 
 ### Environment Variables
 
-| Parameter                       | Description                                                    | Default Value    | Required |
-| :------------------------------ | :------------------------------------------------------------- | :--------------- | :------- |
-| AZURE_OPENAI_ENDPOINT           | Azure OpenAI Endpoint                                          |                  | Yes      |
-| AZURE_OPENAI_PROXY_ADDRESS      | Service listening address                                      | 0.0.0.0:11437    | No       |
-| AZURE_OPENAI_PROXY_MODE         | Proxy mode, can be either "azure" or "openai"                 | azure            | No       |
-| AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2024-12-01-preview      | No       |
-| AZURE_OPENAI_MODELS_APIVERSION  | Azure OpenAI API version (for fetching models)                | 2024-10-21       | No       |
-| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API)                | preview          | No       |
-| AZURE_OPENAI_MODEL_MAPPER       | Comma-separated list of model=deployment pairs                 |                  | No       |
-| AZURE_AI_STUDIO_DEPLOYMENTS     | Comma-separated list of serverless deployments                 |                  | No       |
-| AZURE_OPENAI_KEY_\*             | API keys for serverless deployments (replace \* with uppercase model name) |                  | No       |
+| Parameter | Description | Default Value | Required |
+| :-- | :-- | :-- | :-- |
+| AZURE_OPENAI_ENDPOINT | Azure OpenAI Endpoint |  | Yes |
+| AZURE_OPENAI_PROXY_ADDRESS | Service listening address | 0.0.0.0:11437 | No |
+| AZURE_OPENAI_PROXY_MODE | Proxy mode, can be either "azure" or "openai" | azure | No |
+| AZURE_OPENAI_APIVERSION | Azure OpenAI API version (for general operations) | 2024-12-01-preview | No |
+| AZURE_OPENAI_MODELS_APIVERSION | Azure OpenAI API version (for fetching models) | 2024-10-21 | No |
+| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API) | preview | No |
+| AZURE_ANTHROPIC_ENDPOINT | Override Anthropic endpoint (defaults to https://<resource>.services.ai.azure.com/anthropic) |  | No |
+| AZURE_ANTHROPIC_APIVERSION | Anthropic Messages API version | 2023-06-01 | No |
+| AZURE_OPENAI_MODEL_MAPPER | Comma-separated list of model=deployment pairs |  | No |
+| AZURE_AI_STUDIO_DEPLOYMENTS | Comma-separated list of serverless deployments |  | No |
+| AZURE_OPENAI_KEY_* | API keys for serverless deployments (replace * with uppercase model name) |  | No |
 
 ## Usage
 
@@ -180,6 +183,17 @@ docker run -d -p 11437:11437 \
 Replace the placeholder values with your actual Azure OpenAI configuration.
 
 ## Usage Examples
+
+### Using Open WebUI (or any OpenAI-compatible client)
+
+1.  Point your client at the proxy's base URL (for example `http://proxy-host:11437`) and choose the standard OpenAI API mode.
+2.  Supply the same API key you would normally pass to Azure OpenAI—no extra headers or product-specific credentials are required.
+3.  Select any deployment-backed model name (e.g., `gpt-5-pro`, `gpt-4o`, `claude-3-5-sonnet`):
+    - GPT-5 family models are automatically routed to Azure Foundry's `/openai/deployments/<name>/v1/chat/completions` endpoints so Chat Completions requests continue to work without UI changes.
+    - Claude deployments are auto-detected, translated into Anthropic's Messages payload, and forwarded to the Azure AI Foundry Claude endpoint that shares the same API key.
+4.  (Optional) Enable streaming in the client—both GPT-5 and Claude deployments maintain OpenAI-compatible SSE streams through the proxy.
+
+Because the proxy preserves the OpenAI wire format on both the request and response side, Open WebUI can flip between GPT-5-Pro and Claude models from the same Azure AI Foundry resource with zero configuration differences beyond choosing the desired model name.
 
 ### Calling the API
 
