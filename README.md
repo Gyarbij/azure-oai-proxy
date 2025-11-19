@@ -79,6 +79,18 @@ The proxy automatically detects model capabilities and routes requests appropria
 - GPT-4 series (gpt-4, gpt-4-turbo, etc.)
 - GPT-4o series (gpt-4o, gpt-4o-mini, etc.)
 
+### GPT-5 Models (Azure OpenAI v1 API)
+- **GPT-5 Series**: gpt-5, gpt-5-pro, gpt-5-mini
+
+*GPT-5 models use the Azure OpenAI v1 endpoint structure: `/openai/deployments/{deployment-name}/v1/chat/completions`*
+
+### Claude Models (Azure AI Foundry)
+- **Claude Sonnet 4.5**: claude-sonnet-4.5, claude-sonnet-4-5
+- **Claude Haiku 4.5**: claude-haiku-4.5, claude-haiku-4-5
+- **Claude Opus 4.1**: claude-opus-4.1, claude-opus-4-1
+
+*Claude models on Azure AI Foundry use the models endpoint structure and are automatically detected and routed correctly.*
+
 ### Reasoning Models (Responses API)
 - **O1 Series**: o1, o1-preview, o1-mini
 - **O3 Series**: o3, o3-pro, o3-mini
@@ -196,6 +208,28 @@ curl http://localhost:11437/v1/chat/completions \
  }'
 ```
 
+#### GPT-5 Models
+```sh
+curl http://localhost:11437/v1/chat/completions \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer your-azure-api-key" \
+ -d '{
+  "model": "gpt-5-pro",
+  "messages": [{"role": "user", "content": "What are the latest advancements in AI?"}]
+ }'
+```
+
+#### Claude Models on Azure AI Foundry
+```sh
+curl http://localhost:11437/v1/chat/completions \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer your-azure-api-key" \
+ -d '{
+  "model": "claude-sonnet-4.5",
+  "messages": [{"role": "user", "content": "Explain quantum computing in simple terms."}]
+ }'
+```
+
 #### Reasoning Models (Automatically routed to Responses API)
 ```sh
 curl http://localhost:11437/v1/chat/completions \
@@ -231,6 +265,9 @@ These are the default mappings for the most common models, if your Azure OpenAI 
 | `"o1"`                       | `"o1"`                       |
 | `"o1-preview"`               | `"o1-preview"`               |
 | `"o1-mini-2024-09-12"`       | `"o1-mini-2024-09-12"`       |
+| `"gpt-5"`                    | `"gpt-5"`                    |
+| `"gpt-5-pro"`                | `"gpt-5-pro"`                |
+| `"gpt-5-mini"`               | `"gpt-5-mini"`               |
 | `"gpt-4o"`                   | `"gpt-4o"`                   |
 | `"gpt-4o-2024-05-13"`        | `"gpt-4o-2024-05-13"`        |
 | `"gpt-4o-2024-08-06"`        | `"gpt-4o-2024-08-06"`        |
@@ -253,6 +290,12 @@ These are the default mappings for the most common models, if your Azure OpenAI 
 | `"gpt-3.5-turbo-16k-0613"`   | `"gpt-35-turbo-16k-0613"`   |
 | `"gpt-3.5-turbo-instruct"`   | `"gpt-35-turbo-instruct-0914"` |
 | `"gpt-3.5-turbo-instruct-0914"` | `"gpt-35-turbo-instruct-0914"` |
+| `"claude-sonnet-4.5"`        | `"claude-sonnet-4.5"`        |
+| `"claude-sonnet-4-5"`        | `"claude-sonnet-4.5"`        |
+| `"claude-haiku-4.5"`         | `"claude-haiku-4.5"`         |
+| `"claude-haiku-4-5"`         | `"claude-haiku-4.5"`         |
+| `"claude-opus-4.1"`          | `"claude-opus-4.1"`          |
+| `"claude-opus-4-1"`          | `"claude-opus-4.1"`          |
 | `"text-embedding-3-small"`   | `"text-embedding-3-small-1"` |
 | `"text-embedding-3-large"`   | `"text-embedding-3-large-1"` |
 | `"text-embedding-ada-002"`   | `"text-embedding-ada-002-2"` |
@@ -311,6 +354,7 @@ When using reasoning models, you get access to:
 -   Some reasoning models may have usage limits or require special access permissions.
 
 ## Recently Updated
+-   **2025-01-28** Added support for GPT-5 models (gpt-5, gpt-5-pro, gpt-5-mini) and Claude 4.x models on Azure AI Foundry (claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1) with automatic endpoint detection and routing.
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.
