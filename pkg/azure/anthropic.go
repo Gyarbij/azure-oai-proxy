@@ -177,6 +177,7 @@ func convertOpenAIRequestToAnthropic(req *http.Request) (bool, error) {
 	if streamVal, ok := payload["stream"].(bool); ok && streamVal {
 		stream = true
 	}
+	log.Printf("convertOpenAIRequestToAnthropic: stream=%v, model=%s", stream, payload["model"])
 
 	newBody := map[string]interface{}{
 		"model":      payload["model"],
