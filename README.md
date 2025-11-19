@@ -184,6 +184,17 @@ Replace the placeholder values with your actual Azure OpenAI configuration.
 
 ## Usage Examples
 
+### Using Open WebUI (or any OpenAI-compatible client)
+
+1.  Point your client at the proxy's base URL (for example `http://proxy-host:11437`) and choose the standard OpenAI API mode.
+2.  Supply the same API key you would normally pass to Azure OpenAI—no extra headers or product-specific credentials are required.
+3.  Select any deployment-backed model name (e.g., `gpt-5-pro`, `gpt-4o`, `claude-3-5-sonnet`):
+    - GPT-5 family models are automatically routed to Azure Foundry's `/openai/deployments/<name>/v1/chat/completions` endpoints so Chat Completions requests continue to work without UI changes.
+    - Claude deployments are auto-detected, translated into Anthropic's Messages payload, and forwarded to the Azure AI Foundry Claude endpoint that shares the same API key.
+4.  (Optional) Enable streaming in the client—both GPT-5 and Claude deployments maintain OpenAI-compatible SSE streams through the proxy.
+
+Because the proxy preserves the OpenAI wire format on both the request and response side, Open WebUI can flip between GPT-5-Pro and Claude models from the same Azure AI Foundry resource with zero configuration differences beyond choosing the desired model name.
+
 ### Calling the API
 
 Once the proxy is running, you can call it using the OpenAI API format:
