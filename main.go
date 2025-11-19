@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	Address   = "0.0.0.0:11437"
-	ProxyMode = "azure"
+	Address                           = "0.0.0.0:11437"
+	ProxyMode                         = "azure"
+	errAzureModelsEndpointUnavailable = errors.New("azure models endpoint unavailable")
 )
 
 // Define the ModelList and Model types based on the API documentation
@@ -166,30 +168,49 @@ func handleGetModels(c *gin.Context) {
 }
 
 func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
-	endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
+	endpoint := strings.TrimRight(os.Getenv("AZURE_OPENAI_ENDPOINT"), "/")
 	if endpoint == "" {
-		endpoint = azure.AzureOpenAIEndpoint
+		endpoint = strings.TrimRight(azure.AzureOpenAIEndpoint, "/")
+	}
+	if endpoint == "" {
+		return nil, fmt.Errorf("AZURE_OPENAI_ENDPOINT is not configured")
 	}
 
-	// Use the separate models API version
+	client := &http.Client{}
+
+	models, err := fetchModelsFromDeploymentsAPI(client, endpoint, originalReq)
+	if err == nil {
+		return models, nil
+	}
+
+	log.Printf("failed to list deployments via legacy API, attempting models API: %v", err)
+
+	models, modelErr := fetchModelsFromModelsAPI(client, endpoint, originalReq)
+	if modelErr == nil {
+		return models, nil
+	}
+
+	if errors.Is(modelErr, errAzureModelsEndpointUnavailable) {
+		log.Printf("Azure models endpoint unavailable after deployments failure: %v", modelErr)
+	}
+
+	return nil, fmt.Errorf("failed to fetch deployed models: deployments error: %v; models error: %v", err, modelErr)
+}
+
+func fetchModelsFromModelsAPI(client *http.Client, endpoint string, originalReq *http.Request) ([]Model, error) {
 	modelsAPIVersion := azure.AzureOpenAIModelsAPIVersion
 	url := fmt.Sprintf("%s/openai/models?api-version=%s", endpoint, modelsAPIVersion)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", originalReq.Header.Get("Authorization"))
-
-	azure.HandleToken(req)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := performAzureGET(client, url, originalReq)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: %s", errAzureModelsEndpointUnavailable, strings.TrimSpace(string(body)))
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -202,6 +223,77 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 	}
 
 	return deployedModelsResponse.Data, nil
+}
+
+func fetchModelsFromDeploymentsAPI(client *http.Client, endpoint string, originalReq *http.Request) ([]Model, error) {
+	url := fmt.Sprintf("%s/openai/deployments?api-version=%s", endpoint, azure.AzureOpenAIAPIVersion)
+
+	resp, err := performAzureGET(client, url, originalReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to fetch deployed models: %s", string(body))
+	}
+
+	var deploymentsResponse struct {
+		Object string `json:"object"`
+		Data   []struct {
+			ID     string `json:"id"`
+			Model  string `json:"model"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&deploymentsResponse); err != nil {
+		return nil, err
+	}
+
+	models := make([]Model, 0, len(deploymentsResponse.Data))
+	for _, deployment := range deploymentsResponse.Data {
+		status := deployment.Status
+		if status == "" {
+			status = "ready"
+		}
+
+		models = append(models, Model{
+			ID:     deployment.ID,
+			Object: "model",
+			Capabilities: Capabilities{
+				Completion:     true,
+				ChatCompletion: true,
+				Inference:      true,
+				Embeddings:     true,
+			},
+			LifecycleStatus: "active",
+			Status:          status,
+		})
+	}
+
+	return models, nil
+}
+
+func performAzureGET(client *http.Client, url string, originalReq *http.Request) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if originalReq != nil {
+		if auth := originalReq.Header.Get("Authorization"); auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+		if apiKey := originalReq.Header.Get("api-key"); apiKey != "" {
+			req.Header.Set("api-key", apiKey)
+		}
+	}
+
+	azure.HandleToken(req)
+
+	return client.Do(req)
 }
 
 func handleOptions(c *gin.Context) {
