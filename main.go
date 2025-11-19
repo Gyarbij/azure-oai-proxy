@@ -177,6 +177,20 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 	}
 
 	client := &http.Client{}
+	models, err := fetchModelsFromModelsAPI(client, endpoint, originalReq)
+	if err == nil {
+		return models, nil
+	}
+
+	if errors.Is(err, errAzureModelsEndpointUnavailable) {
+		log.Printf("Azure models endpoint unavailable, falling back to deployments API: %v", err)
+		return fetchModelsFromDeploymentsAPI(client, endpoint, originalReq)
+	}
+	if endpoint == "" {
+		return nil, fmt.Errorf("AZURE_OPENAI_ENDPOINT is not configured")
+	}
+
+	client := &http.Client{}
 
 	models, err := fetchModelsFromDeploymentsAPI(client, endpoint, originalReq)
 	if err == nil {
@@ -195,6 +209,9 @@ func fetchDeployedModels(originalReq *http.Request) ([]Model, error) {
 	}
 
 	return nil, fmt.Errorf("failed to fetch deployed models: deployments error: %v; models error: %v", err, modelErr)
+}
+
+	return nil, err
 }
 
 func fetchModelsFromModelsAPI(client *http.Client, endpoint string, originalReq *http.Request) ([]Model, error) {
