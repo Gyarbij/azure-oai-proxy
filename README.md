@@ -22,6 +22,7 @@ Azure OAI Proxy is a lightweight, high-performance proxy server that enables sea
 -   ⚙️ **Configurable**: Easy to set up with environment variables for Azure AI/Azure OAI endpoint, API keys, and API versions.
 -   🔐 **Serverless Deployment Support**: Supports Azure AI serverless deployments with custom authentication.
 -   🔀 **Automatic API Selection**: Intelligently routes requests to Chat Completions API or Responses API based on model capabilities.
+-   🤖 **Claude Model Support**: Full support for Anthropic's Claude models through Azure AI Foundry integration.
 
 ## Use Cases
 
@@ -83,6 +84,13 @@ The proxy automatically detects model capabilities and routes requests appropria
 - **O1 Series**: o1, o1-preview, o1-mini
 - **O3 Series**: o3, o3-pro, o3-mini
 - **O4 Series**: o4, o4-mini
+
+### Claude Models (Azure AI Foundry)
+- **Claude 3.5 Series**: claude-3-5-sonnet, claude-3-5-haiku
+- **Claude 3 Series**: claude-3-opus, claude-3-sonnet, claude-3-haiku
+- **Claude Instant**: claude-instant
+
+*Claude models are supported through Azure AI Foundry's serverless endpoints. Configure them using `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable.*
 
 *Reasoning models automatically use Azure's Responses API while maintaining OpenAI chat completion interface compatibility.*
 
@@ -222,6 +230,43 @@ curl http://localhost:11437/v1/responses \
 
 For serverless deployments, use the model name as defined in your `AZURE_AI_STUDIO_DEPLOYMENTS` configuration.
 
+### Using Claude Models
+
+Claude models from Anthropic are available through Azure AI Foundry. To use Claude models:
+
+1. **Deploy Claude in Azure AI Foundry**: Follow the [Azure AI Foundry documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/how-to/use-foundry-models-claude) to deploy a Claude model.
+
+2. **Configure the proxy**: Add your Claude deployment to the `AZURE_AI_STUDIO_DEPLOYMENTS` environment variable:
+
+```bash
+AZURE_AI_STUDIO_DEPLOYMENTS=claude-3-5-sonnet=Claude-3-5-Sonnet:eastus,claude-3-opus=Claude-3-Opus:westus
+AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-claude-sonnet-api-key
+AZURE_OPENAI_KEY_CLAUDE-3-OPUS=your-claude-opus-api-key
+```
+
+3. **Make requests**: Use the OpenAI-compatible format:
+
+```sh
+curl http://localhost:11437/v1/chat/completions \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer your-claude-api-key" \
+ -d '{
+  "model": "claude-3-5-sonnet",
+  "messages": [{"role": "user", "content": "Explain quantum computing"}],
+  "max_tokens": 1024
+ }'
+```
+
+**Supported Claude Models:**
+- Claude 3.5 Sonnet (claude-3-5-sonnet)
+- Claude 3.5 Haiku (claude-3-5-haiku)
+- Claude 3 Opus (claude-3-opus)
+- Claude 3 Sonnet (claude-3-sonnet)
+- Claude 3 Haiku (claude-3-haiku)
+- Claude Instant (claude-instant)
+
+The proxy automatically detects Claude models and routes them to the appropriate Azure AI Foundry endpoints.
+
 ## Model Mapping Mechanism (Used for Custom deployment names)
 
 These are the default mappings for the most common models, if your Azure OpenAI deployment uses different names, you can set the `AZURE_OPENAI_MODEL_MAPPER` environment variable to define custom mappings. The proxy also includes a comprehensive **failsafe list** to handle a wide variety of model names:
@@ -309,8 +354,12 @@ When using reasoning models, you get access to:
 -   Monitor your Azure OpenAI usage and costs, especially when using this proxy in high-traffic scenarios.
 -   Reasoning models may have higher latency due to their advanced processing capabilities.
 -   Some reasoning models may have usage limits or require special access permissions.
+-   Claude models require separate deployment in Azure AI Foundry and appropriate API keys.
+-   Invalid or unsupported model names (e.g., "gpt-5-pro") will be logged with warnings.
 
 ## Recently Updated
+-   **2025-XX-XX** Added support for Anthropic's Claude models through Azure AI Foundry integration with automatic model detection and routing.
+-   **2025-XX-XX** Added model validation to prevent errors with unsupported models and provide better error messages.
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.
