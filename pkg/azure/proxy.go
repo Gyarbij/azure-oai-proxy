@@ -253,7 +253,12 @@ func handleClaudeRequest(req *http.Request, model string) {
 		
 		log.Printf("Using Claude serverless deployment for %s at %s", model, req.URL.Host)
 	} else {
-		// If not configured as serverless, log an error
+		// If not configured as serverless, treat as an error but set up a dummy endpoint
+		// This will result in a proper error response rather than a scheme error
+		req.URL.Scheme = "https"
+		req.URL.Host = "unconfigured.invalid"
+		req.URL.Path = "/error/claude-not-configured"
+		
 		log.Printf("Error: Claude model %s is not configured as a serverless deployment", model)
 		log.Printf("Please add it to AZURE_AI_STUDIO_DEPLOYMENTS environment variable")
 		log.Printf("Example: AZURE_AI_STUDIO_DEPLOYMENTS=claude-3-5-sonnet=Claude-3-5-Sonnet:eastus")
