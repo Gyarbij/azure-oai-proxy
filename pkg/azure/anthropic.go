@@ -356,6 +356,13 @@ func convertAnthropicResponse(res *http.Response) {
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err != nil {
 		log.Printf("Error unmarshaling Anthropic response: %v", err)
+		// Log a preview of the body to help diagnose the issue
+		preview := string(body)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		log.Printf("Response body preview: %s", preview)
+		log.Printf("Response Content-Type: %s", res.Header.Get("Content-Type"))
 		res.Body = io.NopCloser(bytes.NewBuffer(body))
 		return
 	}

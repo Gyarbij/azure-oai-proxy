@@ -345,7 +345,8 @@ func modifyResponse(res *http.Response) error {
 	provider := res.Request.Header.Get("X-Proxy-Provider")
 
 	// Check if this is a streaming response that needs conversion
-	if res.Header.Get("Content-Type") == "text/event-stream" {
+	contentType := res.Header.Get("Content-Type")
+	if strings.Contains(contentType, "text/event-stream") {
 		res.Header.Set("X-Accel-Buffering", "no")
 		res.Header.Set("Cache-Control", "no-cache")
 		res.Header.Set("Connection", "keep-alive")
