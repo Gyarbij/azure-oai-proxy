@@ -535,16 +535,32 @@ func modifyResponse(res *http.Response) error {
 			// Create a pipe for the conversion
 			pr, pw := io.Pipe()
 
-			// Start the conversion in a goroutine
-			go func() {
-				defer pw.Close()
-				defer res.Body.Close()
+			// Determine which converter to use based on the endpoint
+			if strings.Contains(res.Request.URL.Path, "/anthropic/v1/messages") {
+				// Use Anthropic streaming converter
+				log.Printf("Using Anthropic streaming converter for model: %s", model)
+				go func() {
+					defer pw.Close()
+					defer res.Body.Close()
 
-				converter := NewStreamingResponseConverter(res.Body, pw, model)
-				if err := converter.Convert(); err != nil {
-					log.Printf("Streaming conversion error: %v", err)
-				}
-			}()
+					converter := NewAnthropicStreamingConverter(res.Body, pw, model)
+					if err := converter.Convert(); err != nil {
+						log.Printf("Anthropic streaming conversion error: %v", err)
+					}
+				}()
+			} else {
+				// Use Responses API streaming converter
+				log.Printf("Using Responses API streaming converter for model: %s", model)
+				go func() {
+					defer pw.Close()
+					defer res.Body.Close()
+
+					converter := NewStreamingResponseConverter(res.Body, pw, model)
+					if err := converter.Convert(); err != nil {
+						log.Printf("Streaming conversion error: %v", err)
+					}
+				}()
+			}
 
 			// Replace the response body
 			res.Body = pr
