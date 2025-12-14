@@ -75,17 +75,33 @@ The latest version of the Azure OpenAI service supports the following APIs:
 The proxy automatically detects model capabilities and routes requests appropriately:
 
 ### Traditional Models (Chat Completions API)
-- **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k, etc.
-- **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k, etc.
+- **GPT-5.2 series**: gpt-5.2, gpt-5.2-chat (NEW - Preview)
+- **GPT-5.1 series**: gpt-5.1, gpt-5.1-chat (NEW)
+- **GPT-5 series**: gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-chat
+- **GPT-4.1 series**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
 - **GPT-4o series**: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, etc.
+- **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k, etc.
+- **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k, etc.
 - **Claude series** (Azure Foundry): claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1
 - **Phi series** (Azure Foundry): phi-3, phi-3-mini, phi-3-small, phi-3-medium, phi-4
-- **Open Source Models**: Mistral, Llama (via serverless deployments)
+- **Open Source Models**: Mistral, Llama, gpt-oss-120b, gpt-oss-20b (via serverless/managed deployments)
 
 ### Reasoning Models (Responses API)
-- **O1 Series**: o1, o1-preview, o1-mini, o1-mini-2024-09-12
-- **O3 Series**: o3, o3-pro, o3-mini, o3-pro-2025-06-10
+- **O1 Series**: o1, o1-preview, o1-mini
+- **O3 Series**: o3, o3-pro, o3-mini, o3-deep-research
 - **O4 Series**: o4, o4-mini
+- **Codex Models**: codex-mini, gpt-5.1-codex, gpt-5.1-codex-mini, gpt-5.1-codex-max, gpt-5-codex
+- **Specialized**: computer-use-preview, gpt-5-pro
+
+### Audio Models
+- **Realtime Audio**: gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview, gpt-realtime, gpt-realtime-mini
+- **Audio Generation**: gpt-4o-audio-preview, gpt-4o-mini-audio-preview, gpt-audio, gpt-audio-mini
+- **Speech-to-Text**: gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-transcribe-diarize, whisper
+- **Text-to-Speech**: gpt-4o-mini-tts, tts, tts-hd
+
+### Image & Video Generation
+- **Image Generation**: gpt-image-1, gpt-image-1-mini, dall-e-2, dall-e-3
+- **Video Generation**: sora, sora-2
 
 *Reasoning models automatically use Azure's Responses API while maintaining OpenAI chat completion interface compatibility.*
 
@@ -352,7 +368,20 @@ When using reasoning models, you get access to:
 -   Some reasoning models may have usage limits or require special access permissions.
 
 ## Recently Updated
--   **2025-12-14** Added comprehensive Azure AI Foundry support including Claude models (Opus 4.5, Sonnet 4.5, Haiku 4.5, Opus 4.1), Phi models (phi-3, phi-4), complete O-series reasoning models (o1, o3, o4 variants). Updated API versions to 2025-04-01-preview (general) and 2025-01-01-preview (Responses API).
+-   **2025-12-14** Added comprehensive Azure OpenAI in Microsoft Foundry support including:
+    - GPT-5.2 series (gpt-5.2, gpt-5.2-chat) - NEW preview models
+    - GPT-5.1 series (gpt-5.1, gpt-5.1-chat, gpt-5.1-codex variants)
+    - GPT-5 series (gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-chat, gpt-5-codex, gpt-5-pro)
+    - GPT-4.1 series (gpt-4.1, gpt-4.1-mini, gpt-4.1-nano)
+    - Claude 4.x models (Opus 4.5, Sonnet 4.5, Haiku 4.5, Opus 4.1)
+    - Complete O-series reasoning models (o1, o3, o4 variants, o3-deep-research)
+    - Codex models (codex-mini, gpt-5.1-codex variants)
+    - Audio models (gpt-4o audio/realtime/transcribe, gpt-realtime, gpt-audio variants)
+    - Image generation (gpt-image-1, gpt-image-1-mini)
+    - Video generation (sora, sora-2)
+    - Open-weight models (gpt-oss-120b, gpt-oss-20b)
+    - Specialized models (computer-use-preview)
+    - Updated API versions to 2025-04-01-preview (general) and 2025-01-01-preview (Responses API)
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.
