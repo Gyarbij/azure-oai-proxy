@@ -78,7 +78,7 @@ The proxy automatically detects model capabilities and routes requests appropria
 - **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k, etc.
 - **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k, etc.
 - **GPT-4o series**: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, etc.
-- **Claude series** (Azure Foundry): claude-3-5-sonnet, claude-3-opus, claude-3-sonnet, claude-3-haiku
+- **Claude series** (Azure Foundry): claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1
 - **Phi series** (Azure Foundry): phi-3, phi-3-mini, phi-3-small, phi-3-medium, phi-4
 - **Open Source Models**: Mistral, Llama (via serverless deployments)
 
@@ -127,10 +127,10 @@ services:
       # - AZURE_OPENAI_APIVERSION=2025-04-01-preview
       # - AZURE_OPENAI_RESPONSES_APIVERSION=2025-01-01-preview
       # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
-      # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-3-5-sonnet=Claude-35-Sonnet:eastus
+      # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-sonnet-4.5=Claude-Sonnet-45:eastus2
       # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
       # - AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
-      # - AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-api-key-3
+      # - AZURE_OPENAI_KEY_CLAUDE-SONNET-4.5=your-api-key-3
     ports:
       - '11437:11437'
     # Uncomment the following line to use an .env file:
@@ -159,10 +159,10 @@ AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
 AZURE_OPENAI_APIVERSION=2025-04-01-preview
 AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
 AZURE_OPENAI_RESPONSES_APIVERSION=2025-01-01-preview
-AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-3-5-sonnet=Claude-35-Sonnet:eastus
+AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-sonnet-4.5=Claude-Sonnet-45:eastus2
 AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
 AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
-AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-api-key-3
+AZURE_OPENAI_KEY_CLAUDE-SONNET-4.5=your-api-key-3
 ```
 
 3.  Uncomment the `env_file: .env` line in your `docker-compose.yml`.
@@ -206,7 +206,7 @@ curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
  -H "Authorization: Bearer your-azure-api-key" \
  -d '{
-  "model": "claude-3-5-sonnet",
+  "model": "claude-sonnet-4.5",
   "messages": [{"role": "user", "content": "Explain quantum computing in simple terms"}],
   "max_tokens": 1000
  }'
@@ -270,12 +270,14 @@ These are the default mappings for the most common models, if your Azure OpenAI 
 ### Claude Models (Azure Foundry)
 | OpenAI Model                 | Azure OpenAI Model           |
 | :--------------------------- | :--------------------------- |
-| `"claude-3-5-sonnet"`        | `"claude-3-5-sonnet"`        |
-| `"claude-3.5-sonnet"`        | `"claude-3-5-sonnet"`        |
-| `"claude-3-5-sonnet-20241022"` | `"claude-3-5-sonnet-20241022"` |
-| `"claude-3-opus"`            | `"claude-3-opus"`            |
-| `"claude-3-sonnet"`          | `"claude-3-sonnet"`          |
-| `"claude-3-haiku"`           | `"claude-3-haiku"`           |
+| `"claude-opus-4.5"`          | `"claude-opus-4.5"`          |
+| `"claude-opus-4-5"`          | `"claude-opus-4.5"`          |
+| `"claude-sonnet-4.5"`        | `"claude-sonnet-4.5"`        |
+| `"claude-sonnet-4-5"`        | `"claude-sonnet-4.5"`        |
+| `"claude-haiku-4.5"`         | `"claude-haiku-4.5"`         |
+| `"claude-haiku-4-5"`         | `"claude-haiku-4.5"`         |
+| `"claude-opus-4.1"`          | `"claude-opus-4.1"`          |
+| `"claude-opus-4-1"`          | `"claude-opus-4.1"`          |
 
 ### GPT Models
 | OpenAI Model                 | Azure OpenAI Model           |
@@ -350,7 +352,7 @@ When using reasoning models, you get access to:
 -   Some reasoning models may have usage limits or require special access permissions.
 
 ## Recently Updated
--   **2025-12-14** Added comprehensive Azure AI Foundry support including Claude models (3.5-sonnet, 3-opus, 3-sonnet, 3-haiku), Phi models (phi-3, phi-4), complete O-series reasoning models (o1, o3, o4 variants). Updated API versions to 2025-04-01-preview (general) and 2025-01-01-preview (Responses API).
+-   **2025-12-14** Added comprehensive Azure AI Foundry support including Claude models (Opus 4.5, Sonnet 4.5, Haiku 4.5, Opus 4.1), Phi models (phi-3, phi-4), complete O-series reasoning models (o1, o3, o4 variants). Updated API versions to 2025-04-01-preview (general) and 2025-01-01-preview (Responses API).
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.
