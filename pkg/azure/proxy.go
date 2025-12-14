@@ -13,6 +13,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/tidwall/gjson"
 )
@@ -884,11 +885,17 @@ func convertResponsesToChatCompletion(res *http.Response) {
 		}
 	}
 
+	// Get created timestamp, use current time if not present
+	created := int64(getFloat64(responseData["created_at"]))
+	if created == 0 {
+		created = time.Now().Unix()
+	}
+
 	// Create chat completion response
 	chatResponse := map[string]interface{}{
 		"id":      responseData["id"],
 		"object":  "chat.completion",
-		"created": int64(getFloat64(responseData["created_at"])),
+		"created": created,
 		"model":   responseData["model"],
 		"choices": []map[string]interface{}{
 			{
@@ -898,9 +905,11 @@ func convertResponsesToChatCompletion(res *http.Response) {
 					"content": content,
 				},
 				"finish_reason": finishReason,
+				"logprobs":      nil,
 			},
 		},
-		"usage": usage,
+		"usage":              usage,
+		"system_fingerprint": nil,
 	}
 
 	// Marshal and set as new body
@@ -985,11 +994,14 @@ func convertAnthropicToChatCompletion(res *http.Response) {
 		}
 	}
 
+	// Get current Unix timestamp for created field
+	created := time.Now().Unix()
+
 	// Create OpenAI chat completion format response
 	chatResponse := map[string]interface{}{
 		"id":      anthropicResponse["id"],
 		"object":  "chat.completion",
-		"created": getInt64(anthropicResponse["created"]),
+		"created": created,
 		"model":   model,
 		"choices": []map[string]interface{}{
 			{
@@ -999,9 +1011,11 @@ func convertAnthropicToChatCompletion(res *http.Response) {
 					"content": content,
 				},
 				"finish_reason": finishReason,
+				"logprobs":      nil,
 			},
 		},
-		"usage": usage,
+		"usage":              usage,
+		"system_fingerprint": nil,
 	}
 
 	// Marshal and set as new body
