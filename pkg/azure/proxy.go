@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -237,6 +238,43 @@ func init() {
 	log.Printf("Azure OpenAI Responses API Version: %s", AzureOpenAIResponsesAPIVersion)
 }
 
+// stripModelVersion removes date/version suffixes from model names
+// Examples: gpt-5.2-2025-12-11 -> gpt-5.2, claude-haiku-4-5-20251001 -> claude-haiku-4-5
+func stripModelVersion(model string) string {
+	// Pattern matches: -YYYY-MM-DD or -YYYYMMDD at the end of the string
+	re := regexp.MustCompile(`-\d{4}-\d{2}-\d{2}$|-\d{8}$`)
+	stripped := re.ReplaceAllString(model, "")
+	if stripped != model {
+		log.Printf("Stripped version suffix from model: %s -> %s", model, stripped)
+	}
+	return stripped
+}
+
+// resolveModelDeployment resolves a model name to its deployment name
+// It handles versioned model names automatically and falls back to the model mapper
+func resolveModelDeployment(model string) string {
+	modelLower := strings.ToLower(model)
+	
+	// First, try exact match in the mapper
+	if azureModel, ok := AzureOpenAIModelMapper[modelLower]; ok {
+		log.Printf("Model %s found in mapper as %s", model, azureModel)
+		return azureModel
+	}
+	
+	// Try stripping version suffix and matching again
+	strippedModel := stripModelVersion(modelLower)
+	if strippedModel != modelLower {
+		if azureModel, ok := AzureOpenAIModelMapper[strippedModel]; ok {
+			log.Printf("Model %s matched stripped version %s in mapper as %s", model, strippedModel, azureModel)
+			return azureModel
+		}
+	}
+	
+	// If not found, use the original model name (works for custom deployments)
+	log.Printf("Model %s not found in mapper, using as-is for deployment", model)
+	return model
+}
+
 func NewOpenAIReverseProxy() *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director:       makeDirector(),
@@ -276,11 +314,15 @@ func makeDirector() func(*http.Request) {
 	return func(req *http.Request) {
 		model := getModelFromRequest(req)
 		originURL := req.URL.String()
-		log.Printf("Original request URL: %s for model: %s", originURL, model)
+		log.Printf("========== NEW REQUEST ==========")
+		log.Printf("Original request URL: %s", originURL)
+		log.Printf("Request method: %s", req.Method)
+		log.Printf("Request path: %s", req.URL.Path)
+		log.Printf("Model from request: %s", model)
 
 		// Check if this is a chat completion request for a model that should use Responses API
 		if strings.HasPrefix(req.URL.Path, "/v1/chat/completions") && shouldUseResponsesAPI(model) {
-			log.Printf("Redirecting %s from chat/completions to responses API", model)
+			log.Printf("Model %s requires Responses API - converting from chat/completions", model)
 			// Convert the chat completion request to a responses request
 			convertChatToResponses(req)
 		}
@@ -293,15 +335,17 @@ func makeDirector() func(*http.Request) {
 
 		// Check if it's a serverless deployment
 		if info, ok := ServerlessDeploymentInfo[modelLower]; ok {
+			log.Printf("Model %s matched serverless deployment: %s in region %s", model, info.Name, info.Region)
 			handleServerlessRequest(req, info, model)
-		} else if azureModel, ok := AzureOpenAIModelMapper[modelLower]; ok {
-			handleRegularRequest(req, azureModel)
 		} else {
-			log.Printf("Warning: Unknown model %s, treating as regular Azure OpenAI deployment", model)
-			handleRegularRequest(req, model)
+			// Resolve the model deployment (handles versioned names automatically)
+			deployment := resolveModelDeployment(model)
+			log.Printf("Using deployment name: %s for model: %s", deployment, model)
+			handleRegularRequest(req, deployment)
 		}
 
-		log.Printf("Proxying request [%s] %s -> %s", model, originURL, req.URL.String())
+		log.Printf("Final proxied URL: %s", req.URL.String())
+		log.Printf("=================================")
 	}
 }
 
@@ -327,6 +371,9 @@ func handleRegularRequest(req *http.Request, deployment string) {
 	req.URL.Scheme = remote.Scheme
 	req.URL.Host = remote.Host
 	req.Host = remote.Host
+	
+	log.Printf("Setting up regular Azure OpenAI request for deployment: %s", deployment)
+	log.Printf("Azure endpoint: %s", AzureOpenAIEndpoint)
 
 	// Handle Responses API endpoints
 	if strings.Contains(req.URL.Path, "/v1/responses") {
@@ -334,50 +381,64 @@ func handleRegularRequest(req *http.Request, deployment string) {
 		if strings.HasPrefix(req.URL.Path, "/v1/responses") && !strings.Contains(req.URL.Path, "/responses/") {
 			// POST /v1/responses - Create response
 			req.URL.Path = "/openai/v1/responses"
+			log.Printf("Responses API: Using path /openai/v1/responses")
 		} else {
 			// Other responses endpoints (GET, DELETE, etc.)
 			// Convert /v1/responses/{id} to /openai/v1/responses/{id}
 			req.URL.Path = strings.Replace(req.URL.Path, "/v1/", "/openai/v1/", 1)
+			log.Printf("Responses API: Converted path to %s", req.URL.Path)
 		}
 
 		// Use the preview API version for Responses API
 		query := req.URL.Query()
 		query.Set("api-version", AzureOpenAIResponsesAPIVersion)
 		req.URL.RawQuery = query.Encode()
+		log.Printf("Responses API: Using API version %s", AzureOpenAIResponsesAPIVersion)
 	} else {
 		// Existing logic for other endpoints
+		var endpointType string
 		switch {
 		case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
 			req.URL.Path = path.Join("/openai/deployments", deployment, "chat/completions")
+			endpointType = "chat/completions"
 		case strings.HasPrefix(req.URL.Path, "/v1/completions"):
 			req.URL.Path = path.Join("/openai/deployments", deployment, "completions")
+			endpointType = "completions"
 		case strings.HasPrefix(req.URL.Path, "/v1/embeddings"):
 			req.URL.Path = path.Join("/openai/deployments", deployment, "embeddings")
+			endpointType = "embeddings"
 		case strings.HasPrefix(req.URL.Path, "/v1/images/generations"):
 			req.URL.Path = path.Join("/openai/deployments", deployment, "images/generations")
+			endpointType = "images/generations"
 		case strings.HasPrefix(req.URL.Path, "/v1/audio/"):
 			// Handle audio endpoints
 			audioPath := strings.TrimPrefix(req.URL.Path, "/v1/")
 			req.URL.Path = path.Join("/openai/deployments", deployment, audioPath)
+			endpointType = "audio"
 		case strings.HasPrefix(req.URL.Path, "/v1/files"):
 			// Files API doesn't use deployment in path
 			req.URL.Path = strings.Replace(req.URL.Path, "/v1/", "/openai/", 1)
+			endpointType = "files"
 		default:
 			req.URL.Path = path.Join("/openai/deployments", deployment, strings.TrimPrefix(req.URL.Path, "/v1/"))
+			endpointType = "other"
 		}
+		log.Printf("Endpoint type: %s, Path set to: %s", endpointType, req.URL.Path)
 
 		// Add api-version query parameter for non-Responses API
 		query := req.URL.Query()
 		query.Add("api-version", AzureOpenAIAPIVersion)
 		req.URL.RawQuery = query.Encode()
+		log.Printf("Using API version: %s", AzureOpenAIAPIVersion)
 	}
 
 	// Use the api-key from the original request for regular deployments
 	apiKey := req.Header.Get("api-key")
 	if apiKey == "" {
-		log.Printf("Warning: No api-key found for regular deployment: %s", deployment)
+		log.Printf("Warning: No api-key found in request headers for deployment: %s", deployment)
+	} else {
+		log.Printf("API key found for deployment: %s", deployment)
 	}
-	log.Printf("Using regular Azure OpenAI deployment for %s", deployment)
 }
 
 func getModelFromRequest(req *http.Request) string {
@@ -473,7 +534,14 @@ func modifyResponse(res *http.Response) error {
 
 	if res.StatusCode >= 400 {
 		body, _ := io.ReadAll(res.Body)
-		log.Printf("Azure API Error Response: Status: %d, Body: %s", res.StatusCode, string(body))
+		log.Printf("========== API ERROR ==========")
+		log.Printf("Azure API Error Response")
+		log.Printf("Status Code: %d", res.StatusCode)
+		log.Printf("Request URL: %s", res.Request.URL.String())
+		log.Printf("Request Method: %s", res.Request.Method)
+		log.Printf("Response Body: %s", string(body))
+		log.Printf("Response Headers: %v", res.Header)
+		log.Printf("===============================")
 		res.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
 
