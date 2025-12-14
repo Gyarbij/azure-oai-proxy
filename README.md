@@ -114,9 +114,9 @@ The proxy automatically detects model capabilities and routes requests appropria
 | AZURE_OPENAI_ENDPOINT           | Azure OpenAI Endpoint                                          |                  | Yes      |
 | AZURE_OPENAI_PROXY_ADDRESS      | Service listening address                                      | 0.0.0.0:11437    | No       |
 | AZURE_OPENAI_PROXY_MODE         | Proxy mode, can be either "azure" or "openai"                 | azure            | No       |
-| AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2025-04-01-preview | No       |
+| AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2024-12-01-preview | No       |
 | AZURE_OPENAI_MODELS_APIVERSION  | Azure OpenAI API version (for fetching models)                | 2024-10-21       | No       |
-| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API/O-series)       | 2025-01-01-preview | No       |
+| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API/O-series)       | 2024-12-01-preview | No       |
 | AZURE_OPENAI_MODEL_MAPPER       | Comma-separated list of model=deployment pairs                 |                  | No       |
 | AZURE_AI_STUDIO_DEPLOYMENTS     | Comma-separated list of serverless deployments                 |                  | No       |
 | AZURE_OPENAI_KEY_\*             | API keys for serverless deployments (replace \* with uppercase model name) |                  | No       |
@@ -140,8 +140,8 @@ services:
       - AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
       # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
       # - AZURE_OPENAI_PROXY_MODE=azure
-      # - AZURE_OPENAI_APIVERSION=2025-04-01-preview
-      # - AZURE_OPENAI_RESPONSES_APIVERSION=2025-01-01-preview
+      # - AZURE_OPENAI_APIVERSION=2024-12-01-preview
+      # - AZURE_OPENAI_RESPONSES_APIVERSION=2024-12-01-preview
       # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
       # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-sonnet-4.5=Claude-Sonnet-45:eastus2
       # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
@@ -172,9 +172,9 @@ To use an .env file instead of environment variables in the Docker Compose file:
 
 ```
 AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
-AZURE_OPENAI_APIVERSION=2025-04-01-preview
+AZURE_OPENAI_APIVERSION=2024-12-01-preview
 AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
-AZURE_OPENAI_RESPONSES_APIVERSION=2025-01-01-preview
+AZURE_OPENAI_RESPONSES_APIVERSION=2024-12-01-preview
 AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-sonnet-4.5=Claude-Sonnet-45:eastus2
 AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
 AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
@@ -381,7 +381,7 @@ When using reasoning models, you get access to:
     - Video generation (sora, sora-2)
     - Open-weight models (gpt-oss-120b, gpt-oss-20b)
     - Specialized models (computer-use-preview)
-    - Updated API versions to 2025-04-01-preview (general) and 2025-01-01-preview (Responses API)
+    - Updated API versions to 2024-12-01-preview (general and Responses API)
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.

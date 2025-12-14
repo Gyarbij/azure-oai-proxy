@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	AzureOpenAIAPIVersion          = "2025-04-01-preview" // API version for proxying requests - supports latest Azure Foundry features
+	AzureOpenAIAPIVersion          = "2024-12-01-preview" // API version for proxying requests - supports Azure Foundry features
 	AzureOpenAIModelsAPIVersion    = "2024-10-21"         // API version for fetching models
-	AzureOpenAIResponsesAPIVersion = "2025-01-01-preview" // API version for Responses API - updated for O-series support
+	AzureOpenAIResponsesAPIVersion = "2024-12-01-preview" // API version for Responses API - supports O-series models
 	AzureOpenAIEndpoint            = ""
 	ServerlessDeploymentInfo       = make(map[string]ServerlessDeployment)
 	AzureOpenAIModelMapper         = make(map[string]string)
