@@ -21,6 +21,7 @@ var (
 	AzureOpenAIAPIVersion          = "2024-08-01-preview" // API version for proxying requests - supports Azure Foundry features
 	AzureOpenAIModelsAPIVersion    = "2024-10-21"         // API version for fetching models
 	AzureOpenAIResponsesAPIVersion = "2024-08-01-preview" // API version for Responses API - supports O-series models
+	AnthropicAPIVersion            = "2023-06-01"         // Anthropic API version for Claude models
 	AzureOpenAIEndpoint            = ""
 	ServerlessDeploymentInfo       = make(map[string]ServerlessDeployment)
 	AzureOpenAIModelMapper         = make(map[string]string)
@@ -41,6 +42,9 @@ func init() {
 	}
 	if v := os.Getenv("AZURE_OPENAI_RESPONSES_APIVERSION"); v != "" {
 		AzureOpenAIResponsesAPIVersion = v
+	}
+	if v := os.Getenv("ANTHROPIC_APIVERSION"); v != "" {
+		AnthropicAPIVersion = v
 	}
 	if v := os.Getenv("AZURE_OPENAI_ENDPOINT"); v != "" {
 		AzureOpenAIEndpoint = v
@@ -436,11 +440,15 @@ func handleRegularRequest(req *http.Request, deployment string) {
 		}
 		log.Printf("Endpoint type: %s, Path set to: %s", endpointType, req.URL.Path)
 
-		// Add api-version query parameter for non-Responses API
-		query := req.URL.Query()
-		query.Add("api-version", AzureOpenAIAPIVersion)
-		req.URL.RawQuery = query.Encode()
-		log.Printf("Using API version: %s", AzureOpenAIAPIVersion)
+		// Add api-version query parameter for non-Responses API (but not for Anthropic API)
+		if endpointType != "anthropic/messages" {
+			query := req.URL.Query()
+			query.Add("api-version", AzureOpenAIAPIVersion)
+			req.URL.RawQuery = query.Encode()
+			log.Printf("Using API version: %s", AzureOpenAIAPIVersion)
+		} else {
+			log.Printf("Anthropic Messages API: Skipping Azure api-version query parameter")
+		}
 	}
 
 	// Use the api-key from the original request for regular deployments
@@ -751,7 +759,8 @@ func convertChatToAnthropicMessages(req *http.Request, model string) {
 		req.Header.Set("X-Model", model) // Store model for response conversion
 		
 		// Set Anthropic-specific headers
-		req.Header.Set("anthropic-version", "2023-06-01")
+		req.Header.Set("anthropic-version", AnthropicAPIVersion)
+		log.Printf("Set anthropic-version header: %s", AnthropicAPIVersion)
 		
 		// Convert api-key to x-api-key for Anthropic API
 		if apiKey := req.Header.Get("api-key"); apiKey != "" {

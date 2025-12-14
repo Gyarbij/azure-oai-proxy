@@ -120,6 +120,7 @@ The proxy automatically detects model capabilities and routes requests appropria
 | AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2024-08-01-preview | No       |
 | AZURE_OPENAI_MODELS_APIVERSION  | Azure OpenAI API version (for fetching models)                | 2024-10-21       | No       |
 | AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API/O-series)       | 2024-08-01-preview | No       |
+| ANTHROPIC_APIVERSION            | Anthropic API version (for Claude models)                      | 2023-06-01       | No       |
 | AZURE_OPENAI_MODEL_MAPPER       | Comma-separated list of model=deployment pairs                 |                  | No       |
 | AZURE_AI_STUDIO_DEPLOYMENTS     | Comma-separated list of serverless deployments                 |                  | No       |
 | AZURE_OPENAI_KEY_\*             | API keys for serverless deployments (replace \* with uppercase model name) |                  | No       |
@@ -145,6 +146,7 @@ services:
       - AZURE_OPENAI_APIVERSION=2024-08-01-preview
       - AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
       - AZURE_OPENAI_RESPONSES_APIVERSION=2024-08-01-preview
+      - ANTHROPIC_APIVERSION=2023-06-01
       # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
       # - AZURE_OPENAI_PROXY_MODE=azure
       # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
@@ -180,6 +182,7 @@ AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
 AZURE_OPENAI_APIVERSION=2024-08-01-preview
 AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
 AZURE_OPENAI_RESPONSES_APIVERSION=2024-08-01-preview
+ANTHROPIC_APIVERSION=2023-06-01
 AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-sonnet-4.5=Claude-Sonnet-45:eastus2
 AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
 AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
@@ -244,10 +247,11 @@ curl http://localhost:11437/v1/chat/completions \
 
 **Behind the scenes:**
 - Request is automatically converted to Anthropic Messages API format
-- Routed to `https://your-endpoint.services.ai.azure.com/anthropic/v1/messages`
+- Routed to `https://your-endpoint.services.ai.azure.com/anthropic/v1/messages` (no Azure api-version query parameter)
 - Response is converted back to OpenAI chat completion format
 - System messages are extracted and passed as the `system` parameter
-- Headers are automatically adjusted (`x-api-key`, `anthropic-version`)
+- Headers are automatically adjusted (`x-api-key`, `anthropic-version: 2023-06-01`)
+- **Note**: Uses `ANTHROPIC_APIVERSION` environment variable (default: `2023-06-01`)
 
 **Example with custom deployment name:**
 If your Claude deployment has a different name (e.g., `Claude-Sonnet-45-20251001`), use the model mapper:
