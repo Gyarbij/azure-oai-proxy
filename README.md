@@ -225,11 +225,12 @@ curl http://localhost:11437/v1/chat/completions \
 
 ⚠️ **Important for Claude Models:**
 - Claude models must be **deployed in your Azure Foundry account** before use
-- They use the **Chat Completions API** (NOT the Responses API)
-- If you get "Unknown model" errors, your deployment name may differ from the standard name
-- Use `AZURE_OPENAI_MODEL_MAPPER` to map the model name to your actual deployment name
+- They use the **Anthropic Messages API** (automatically converted from OpenAI chat completions format)
+- The proxy automatically handles the conversion - just use the standard OpenAI format
+- Requests are routed to `/anthropic/v1/messages` endpoint
+- Responses are automatically converted back to OpenAI chat completion format
 
-**Example with standard deployment name:**
+**Example - Standard OpenAI Format Works Seamlessly:**
 ```sh
 curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
@@ -240,6 +241,13 @@ curl http://localhost:11437/v1/chat/completions \
   "max_tokens": 1000
  }'
 ```
+
+**Behind the scenes:**
+- Request is automatically converted to Anthropic Messages API format
+- Routed to `https://your-endpoint.services.ai.azure.com/anthropic/v1/messages`
+- Response is converted back to OpenAI chat completion format
+- System messages are extracted and passed as the `system` parameter
+- Headers are automatically adjusted (`x-api-key`, `anthropic-version`)
 
 **Example with custom deployment name:**
 If your Claude deployment has a different name (e.g., `Claude-Sonnet-45-20251001`), use the model mapper:
@@ -390,10 +398,15 @@ When using reasoning models, you get access to:
 
 ### Claude Models
 
+**✅ NEW: Native Anthropic Messages API Support**
+- Claude models now use the **Anthropic Messages API** (`/anthropic/v1/messages`)
+- Automatic conversion from OpenAI chat completions format
+- Automatic response conversion back to OpenAI format
+- No configuration changes needed - use standard OpenAI format
+
 **Error: "This model is not supported by Responses API"**
-- **Cause**: Claude models use the Chat Completions API, NOT the Responses API
-- **Solution**: Claude models should automatically use the correct API. If you see this error, check your deployment configuration
-- **Note**: The proxy correctly routes Claude to Chat Completions API by default
+- **Fixed**: Claude models now correctly use Anthropic Messages API (not Responses API or standard Chat Completions)
+- **Solution**: Update to the latest version - the proxy now automatically routes Claude to the correct endpoint
 
 **Error: "Unknown model: claude-sonnet-4-5" or similar**
 - **Cause**: The deployment name in Azure doesn't match the model name you're using
@@ -407,7 +420,8 @@ When using reasoning models, you get access to:
 **Deployment Requirements**:
 1. Claude models must be deployed in your Azure Foundry account (East US2 or Sweden Central)
 2. They require Global Standard deployment
-3. The deployment name must be configured correctly in the proxy
+3. The endpoint format is `https://your-resource.services.ai.azure.com`
+4. Uses `x-api-key` header and `anthropic-version: 2023-06-01`
 
 ### General 404 Errors
 
@@ -417,6 +431,12 @@ When using reasoning models, you get access to:
 - **Use model mapper**: Map model names to your actual deployment names if they differ
 
 ## Recently Updated
+-   **2025-12-14 (Latest)** Added native Anthropic Messages API support for Claude models:
+    - Claude models now use `/anthropic/v1/messages` endpoint (correct format for Azure Foundry)
+    - Automatic bidirectional conversion between OpenAI and Anthropic formats
+    - System messages extracted and handled correctly
+    - Headers automatically adjusted (`x-api-key`, `anthropic-version`)
+    - Seamless integration - use standard OpenAI chat completions format
 -   **2025-12-14** Added comprehensive Azure OpenAI in Microsoft Foundry support including:
     - GPT-5.2 series (gpt-5.2, gpt-5.2-chat) - NEW preview models
     - GPT-5.1 series (gpt-5.1, gpt-5.1-chat, gpt-5.1-codex variants)

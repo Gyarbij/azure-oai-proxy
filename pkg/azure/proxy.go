@@ -320,6 +320,12 @@ func makeDirector() func(*http.Request) {
 		log.Printf("Request path: %s", req.URL.Path)
 		log.Printf("Model from request: %s", model)
 
+		// Check if this is a Claude model - use Anthropic Messages API
+		if isClaudeModel(model) && strings.HasPrefix(req.URL.Path, "/v1/chat/completions") {
+			log.Printf("Model %s is a Claude model - converting to Anthropic Messages API format", model)
+			convertChatToAnthropicMessages(req, model)
+		}
+
 		// Check if this is a chat completion request for a model that should use Responses API
 		if strings.HasPrefix(req.URL.Path, "/v1/chat/completions") && shouldUseResponsesAPI(model) {
 			log.Printf("Model %s requires Responses API - converting from chat/completions", model)
@@ -398,6 +404,11 @@ func handleRegularRequest(req *http.Request, deployment string) {
 		// Existing logic for other endpoints
 		var endpointType string
 		switch {
+		case strings.HasPrefix(req.URL.Path, "/v1/anthropic/messages"):
+			// Claude models use Anthropic Messages API
+			req.URL.Path = "/anthropic/v1/messages"
+			endpointType = "anthropic/messages"
+			log.Printf("Claude model detected - using Anthropic Messages API endpoint: %s", req.URL.Path)
 		case strings.HasPrefix(req.URL.Path, "/v1/chat/completions"):
 			req.URL.Path = path.Join("/openai/deployments", deployment, "chat/completions")
 			endpointType = "chat/completions"
@@ -532,6 +543,14 @@ func modifyResponse(res *http.Response) error {
 		}
 	}
 
+	// Handle Anthropic Messages API responses
+	if strings.Contains(res.Request.URL.Path, "/anthropic/v1/messages") && res.StatusCode == 200 {
+		// Check if the original request was for chat completions
+		if origPath := res.Request.Header.Get("X-Original-Path"); origPath == "/v1/chat/completions" {
+			convertAnthropicToChatCompletion(res)
+		}
+	}
+
 	if res.StatusCode >= 400 {
 		body, _ := io.ReadAll(res.Body)
 		log.Printf("========== API ERROR ==========")
@@ -546,6 +565,22 @@ func modifyResponse(res *http.Response) error {
 	}
 
 	return nil
+}
+
+// Add a function to check if a model is Claude model
+func isClaudeModel(model string) bool {
+	modelLower := strings.ToLower(model)
+	claudePrefixes := []string{
+		"claude-opus", "claude-sonnet", "claude-haiku",
+		"claude-3", "claude-4",
+	}
+	
+	for _, prefix := range claudePrefixes {
+		if strings.HasPrefix(modelLower, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // Add a function to check if a model should use Responses API
@@ -641,6 +676,88 @@ func convertChatToResponses(req *http.Request) {
 		req.URL.Path = "/v1/responses"
 		req.Header.Set("X-Original-Path", "/v1/chat/completions")
 		req.Header.Set("X-Model", model) // Store model for streaming response
+	}
+}
+
+// Function to convert chat completion request to Anthropic Messages API format
+func convertChatToAnthropicMessages(req *http.Request, model string) {
+	if req.Body != nil {
+		body, _ := io.ReadAll(req.Body)
+
+		log.Printf("Original chat completion request for Claude: %s", string(body))
+
+		// Parse the chat completion request
+		messages := gjson.GetBytes(body, "messages").Array()
+		temperature := gjson.GetBytes(body, "temperature").Float()
+		maxTokens := gjson.GetBytes(body, "max_tokens").Int()
+		stream := gjson.GetBytes(body, "stream").Bool()
+		
+		// Extract system message if present
+		var systemMessage string
+		var anthropicMessages []map[string]interface{}
+		
+		for _, msg := range messages {
+			role := msg.Get("role").String()
+			content := msg.Get("content").String()
+			
+			if role == "system" {
+				// Anthropic uses separate system parameter
+				systemMessage = content
+			} else {
+				// Convert user/assistant messages
+				anthropicMsg := map[string]interface{}{
+					"role":    role,
+					"content": content,
+				}
+				anthropicMessages = append(anthropicMessages, anthropicMsg)
+			}
+		}
+		
+		// Create new request body for Anthropic Messages API
+		newBody := map[string]interface{}{
+			"model":      model,
+			"messages":   anthropicMessages,
+			"max_tokens": maxTokens,
+		}
+		
+		if systemMessage != "" {
+			newBody["system"] = systemMessage
+		}
+		
+		if temperature > 0 {
+			newBody["temperature"] = temperature
+		}
+		
+		if stream {
+			newBody["stream"] = true
+		}
+		
+		// Default max_tokens if not specified
+		if maxTokens == 0 {
+			newBody["max_tokens"] = 1000
+		}
+
+		// Marshal the new body
+		newBodyBytes, _ := json.Marshal(newBody)
+
+		log.Printf("Converted to Anthropic Messages API request: %s", string(newBodyBytes))
+
+		req.Body = io.NopCloser(bytes.NewBuffer(newBodyBytes))
+		req.ContentLength = int64(len(newBodyBytes))
+
+		// Update the path to use Anthropic Messages API endpoint
+		req.URL.Path = "/v1/anthropic/messages"
+		req.Header.Set("X-Original-Path", "/v1/chat/completions")
+		req.Header.Set("X-Model", model) // Store model for response conversion
+		
+		// Set Anthropic-specific headers
+		req.Header.Set("anthropic-version", "2023-06-01")
+		
+		// Convert api-key to x-api-key for Anthropic API
+		if apiKey := req.Header.Get("api-key"); apiKey != "" {
+			req.Header.Set("x-api-key", apiKey)
+			log.Printf("Set x-api-key header for Anthropic API")
+		}
 	}
 }
 
@@ -766,6 +883,123 @@ func convertResponsesToChatCompletion(res *http.Response) {
 	res.Body = io.NopCloser(bytes.NewBuffer(newBody))
 	res.ContentLength = int64(len(newBody))
 	res.Header.Set("Content-Length", fmt.Sprintf("%d", len(newBody)))
+}
+
+// convert Anthropic Messages API response to chat completion format
+func convertAnthropicToChatCompletion(res *http.Response) {
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("Error reading Anthropic response body: %v", err)
+		return
+	}
+
+	// Log the raw response for debugging
+	log.Printf("Raw Anthropic Messages API response: %s", string(body))
+
+	var anthropicResponse map[string]interface{}
+	if err := json.Unmarshal(body, &anthropicResponse); err != nil {
+		log.Printf("Error unmarshaling Anthropic response: %v", err)
+		res.Body = io.NopCloser(bytes.NewBuffer(body))
+		return
+	}
+
+	// Check if there's an error
+	if errorData, ok := anthropicResponse["error"]; ok && errorData != nil {
+		log.Printf("Error in Anthropic response, passing through: %v", errorData)
+		res.Body = io.NopCloser(bytes.NewBuffer(body))
+		return
+	}
+
+	// Get model from request header
+	model := res.Request.Header.Get("X-Model")
+	if model == "" {
+		model = "claude-unknown"
+	}
+
+	// Extract content from Anthropic response
+	var content string
+	if contentArray, ok := anthropicResponse["content"].([]interface{}); ok && len(contentArray) > 0 {
+		if contentBlock, ok := contentArray[0].(map[string]interface{}); ok {
+			if text, ok := contentBlock["text"].(string); ok {
+				content = text
+			}
+		}
+	}
+
+	// Extract usage information
+	usage := map[string]interface{}{
+		"prompt_tokens":     0,
+		"completion_tokens": 0,
+		"total_tokens":      0,
+	}
+	if usageData, ok := anthropicResponse["usage"].(map[string]interface{}); ok {
+		if promptTokens, ok := usageData["input_tokens"]; ok {
+			usage["prompt_tokens"] = promptTokens
+		}
+		if completionTokens, ok := usageData["output_tokens"]; ok {
+			usage["completion_tokens"] = completionTokens
+		}
+		// Calculate total
+		promptInt := getInt64(usage["prompt_tokens"])
+		completionInt := getInt64(usage["completion_tokens"])
+		usage["total_tokens"] = promptInt + completionInt
+	}
+
+	// Get stop reason and map to OpenAI finish_reason
+	finishReason := "stop"
+	if stopReason, ok := anthropicResponse["stop_reason"].(string); ok {
+		switch stopReason {
+		case "end_turn":
+			finishReason = "stop"
+		case "max_tokens":
+			finishReason = "length"
+		case "stop_sequence":
+			finishReason = "stop"
+		default:
+			finishReason = "stop"
+		}
+	}
+
+	// Create OpenAI chat completion format response
+	chatResponse := map[string]interface{}{
+		"id":      anthropicResponse["id"],
+		"object":  "chat.completion",
+		"created": getInt64(anthropicResponse["created"]),
+		"model":   model,
+		"choices": []map[string]interface{}{
+			{
+				"index": 0,
+				"message": map[string]interface{}{
+					"role":    "assistant",
+					"content": content,
+				},
+				"finish_reason": finishReason,
+			},
+		},
+		"usage": usage,
+	}
+
+	// Marshal and set as new body
+	newBody, _ := json.Marshal(chatResponse)
+	log.Printf("Converted Anthropic response to OpenAI format: %s", string(newBody))
+	
+	res.Body = io.NopCloser(bytes.NewBuffer(newBody))
+	res.ContentLength = int64(len(newBody))
+	res.Header.Set("Content-Length", fmt.Sprintf("%d", len(newBody)))
+}
+
+// Helper function to safely get int64
+func getInt64(v interface{}) int64 {
+	switch val := v.(type) {
+	case int64:
+		return val
+	case int:
+		return int64(val)
+	case float64:
+		return int64(val)
+	default:
+		return 0
+	}
 }
 
 // Helper function to safely get float64
