@@ -125,6 +125,8 @@ The proxy automatically detects model capabilities and routes requests appropria
 
 ### Docker Compose
 
+⚠️ **Important**: When using Docker, you must set the API version environment variables in your compose file to override the defaults. Older Docker images may have outdated API versions hardcoded.
+
 Here's an example `docker-compose.yml` file with all possible environment variable options:
 
 ```yaml
@@ -137,11 +139,11 @@ services:
     restart: always
     environment:
       - AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+      - AZURE_OPENAI_APIVERSION=2024-08-01-preview
       - AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
+      - AZURE_OPENAI_RESPONSES_APIVERSION=2024-08-01-preview
       # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
       # - AZURE_OPENAI_PROXY_MODE=azure
-      # - AZURE_OPENAI_APIVERSION=2024-08-01-preview
-      # - AZURE_OPENAI_RESPONSES_APIVERSION=2024-08-01-preview
       # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
       # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-sonnet-4.5=Claude-Sonnet-45:eastus2
       # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
