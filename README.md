@@ -75,13 +75,16 @@ The latest version of the Azure OpenAI service supports the following APIs:
 The proxy automatically detects model capabilities and routes requests appropriately:
 
 ### Traditional Models (Chat Completions API)
-- GPT-3.5 series (gpt-3.5-turbo, etc.)
-- GPT-4 series (gpt-4, gpt-4-turbo, etc.)
-- GPT-4o series (gpt-4o, gpt-4o-mini, etc.)
+- **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k, etc.
+- **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k, etc.
+- **GPT-4o series**: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, etc.
+- **Claude series** (Azure Foundry): claude-3-5-sonnet, claude-3-opus, claude-3-sonnet, claude-3-haiku
+- **Phi series** (Azure Foundry): phi-3, phi-3-mini, phi-3-small, phi-3-medium, phi-4
+- **Open Source Models**: Mistral, Llama (via serverless deployments)
 
 ### Reasoning Models (Responses API)
-- **O1 Series**: o1, o1-preview, o1-mini
-- **O3 Series**: o3, o3-pro, o3-mini
+- **O1 Series**: o1, o1-preview, o1-mini, o1-mini-2024-09-12
+- **O3 Series**: o3, o3-pro, o3-mini, o3-pro-2025-06-10
 - **O4 Series**: o4, o4-mini
 
 *Reasoning models automatically use Azure's Responses API while maintaining OpenAI chat completion interface compatibility.*
@@ -95,9 +98,9 @@ The proxy automatically detects model capabilities and routes requests appropria
 | AZURE_OPENAI_ENDPOINT           | Azure OpenAI Endpoint                                          |                  | Yes      |
 | AZURE_OPENAI_PROXY_ADDRESS      | Service listening address                                      | 0.0.0.0:11437    | No       |
 | AZURE_OPENAI_PROXY_MODE         | Proxy mode, can be either "azure" or "openai"                 | azure            | No       |
-| AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2024-12-01-preview      | No       |
+| AZURE_OPENAI_APIVERSION         | Azure OpenAI API version (for general operations)             | 2025-04-01-preview | No       |
 | AZURE_OPENAI_MODELS_APIVERSION  | Azure OpenAI API version (for fetching models)                | 2024-10-21       | No       |
-| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API)                | preview          | No       |
+| AZURE_OPENAI_RESPONSES_APIVERSION | Azure OpenAI API version (for Responses API/O-series)       | 2025-01-01-preview | No       |
 | AZURE_OPENAI_MODEL_MAPPER       | Comma-separated list of model=deployment pairs                 |                  | No       |
 | AZURE_AI_STUDIO_DEPLOYMENTS     | Comma-separated list of serverless deployments                 |                  | No       |
 | AZURE_OPENAI_KEY_\*             | API keys for serverless deployments (replace \* with uppercase model name) |                  | No       |
@@ -121,13 +124,13 @@ services:
       - AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
       # - AZURE_OPENAI_PROXY_ADDRESS=0.0.0.0:11437
       # - AZURE_OPENAI_PROXY_MODE=azure
-      # - AZURE_OPENAI_APIVERSION=2024-12-01-preview
-      # - AZURE_OPENAI_RESPONSES_APIVERSION=preview
+      # - AZURE_OPENAI_APIVERSION=2025-04-01-preview
+      # - AZURE_OPENAI_RESPONSES_APIVERSION=2025-01-01-preview
       # - AZURE_OPENAI_MODEL_MAPPER=gpt-3.5-turbo=gpt-35-turbo,gpt-4=gpt-4-turbo
-      # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,llama-3.1-70B=Llama-31-70B:swedencentral
+      # - AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-3-5-sonnet=Claude-35-Sonnet:eastus
       # - AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
-      # - AZURE_OPENAI_KEY_LLAMA-3.1-8B=your-api-key-2
-      # - AZURE_OPENAI_KEY_LLAMA-3.1-70B=your-api-key-3
+      # - AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
+      # - AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-api-key-3
     ports:
       - '11437:11437'
     # Uncomment the following line to use an .env file:
@@ -153,12 +156,13 @@ To use an .env file instead of environment variables in the Docker Compose file:
 
 ```
 AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
-AZURE_OPENAI_APIVERSION=2024-12-01-preview
+AZURE_OPENAI_APIVERSION=2025-04-01-preview
 AZURE_OPENAI_MODELS_APIVERSION=2024-10-21
-AZURE_OPENAI_RESPONSES_APIVERSION=preview
-AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus
+AZURE_OPENAI_RESPONSES_APIVERSION=2025-01-01-preview
+AZURE_AI_STUDIO_DEPLOYMENTS=mistral-large-2407=Mistral-large2:swedencentral,llama-3.1-405B=Meta-Llama-3-1-405B-Instruct:northcentralus,claude-3-5-sonnet=Claude-35-Sonnet:eastus
 AZURE_OPENAI_KEY_MISTRAL-LARGE-2407=your-api-key-1
 AZURE_OPENAI_KEY_LLAMA-3.1-405B=your-api-key-2
+AZURE_OPENAI_KEY_CLAUDE-3-5-SONNET=your-api-key-3
 ```
 
 3.  Uncomment the `env_file: .env` line in your `docker-compose.yml`.
@@ -185,7 +189,7 @@ Replace the placeholder values with your actual Azure OpenAI configuration.
 
 Once the proxy is running, you can call it using the OpenAI API format:
 
-#### Traditional Chat Models
+#### Traditional Chat Models (GPT-4o, GPT-4, etc.)
 ```sh
 curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
@@ -193,6 +197,29 @@ curl http://localhost:11437/v1/chat/completions \
  -d '{
   "model": "gpt-4o",
   "messages": [{"role": "user", "content": "Hello!"}]
+ }'
+```
+
+#### Claude Models (Azure Foundry)
+```sh
+curl http://localhost:11437/v1/chat/completions \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer your-azure-api-key" \
+ -d '{
+  "model": "claude-3-5-sonnet",
+  "messages": [{"role": "user", "content": "Explain quantum computing in simple terms"}],
+  "max_tokens": 1000
+ }'
+```
+
+#### Phi Models (Azure Foundry)
+```sh
+curl http://localhost:11437/v1/chat/completions \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer your-azure-api-key" \
+ -d '{
+  "model": "phi-4",
+  "messages": [{"role": "user", "content": "What is machine learning?"}]
  }'
 ```
 
@@ -226,52 +253,64 @@ For serverless deployments, use the model name as defined in your `AZURE_AI_STUD
 
 These are the default mappings for the most common models, if your Azure OpenAI deployment uses different names, you can set the `AZURE_OPENAI_MODEL_MAPPER` environment variable to define custom mappings. The proxy also includes a comprehensive **failsafe list** to handle a wide variety of model names:
 
+### Reasoning Models (O-series)
 | OpenAI Model                 | Azure OpenAI Model           |
 | :--------------------------- | :--------------------------- |
 | `"o1"`                       | `"o1"`                       |
 | `"o1-preview"`               | `"o1-preview"`               |
+| `"o1-mini"`                  | `"o1-mini"`                  |
 | `"o1-mini-2024-09-12"`       | `"o1-mini-2024-09-12"`       |
+| `"o3"`                       | `"o3"`                       |
+| `"o3-mini"`                  | `"o3-mini"`                  |
+| `"o3-pro"`                   | `"o3-pro"`                   |
+| `"o3-pro-2025-06-10"`        | `"o3-pro-2025-06-10"`        |
+| `"o4"`                       | `"o4"`                       |
+| `"o4-mini"`                  | `"o4-mini"`                  |
+
+### Claude Models (Azure Foundry)
+| OpenAI Model                 | Azure OpenAI Model           |
+| :--------------------------- | :--------------------------- |
+| `"claude-3-5-sonnet"`        | `"claude-3-5-sonnet"`        |
+| `"claude-3.5-sonnet"`        | `"claude-3-5-sonnet"`        |
+| `"claude-3-5-sonnet-20241022"` | `"claude-3-5-sonnet-20241022"` |
+| `"claude-3-opus"`            | `"claude-3-opus"`            |
+| `"claude-3-sonnet"`          | `"claude-3-sonnet"`          |
+| `"claude-3-haiku"`           | `"claude-3-haiku"`           |
+
+### GPT Models
+| OpenAI Model                 | Azure OpenAI Model           |
+| :--------------------------- | :--------------------------- |
 | `"gpt-4o"`                   | `"gpt-4o"`                   |
 | `"gpt-4o-2024-05-13"`        | `"gpt-4o-2024-05-13"`        |
 | `"gpt-4o-2024-08-06"`        | `"gpt-4o-2024-08-06"`        |
+| `"gpt-4o-2024-11-20"`        | `"gpt-4o-2024-11-20"`        |
 | `"gpt-4o-mini"`              | `"gpt-4o-mini"`              |
 | `"gpt-4o-mini-2024-07-18"`   | `"gpt-4o-mini-2024-07-18"`   |
 | `"gpt-4"`                    | `"gpt-4-0613"`               |
-| `"gpt-4-0613"`               | `"gpt-4-0613"`               |
-| `"gpt-4-1106-preview"`       | `"gpt-4-1106-preview"`       |
-| `"gpt-4-0125-preview"`       | `"gpt-4-0125-preview"`       |
-| `"gpt-4-vision-preview"`     | `"gpt-4-vision-preview"`     |
+| `"gpt-4-turbo"`              | `"gpt-4-turbo"`              |
 | `"gpt-4-turbo-2024-04-09"`   | `"gpt-4-turbo-2024-04-09"`   |
-| `"gpt-4-32k"`                | `"gpt-4-32k-0613"`           |
-| `"gpt-4-32k-0613"`           | `"gpt-4-32k-0613"`           |
 | `"gpt-3.5-turbo"`            | `"gpt-35-turbo-0613"`        |
-| `"gpt-3.5-turbo-0301"`       | `"gpt-35-turbo-0301"`       |
-| `"gpt-3.5-turbo-0613"`       | `"gpt-35-turbo-0613"`       |
-| `"gpt-3.5-turbo-1106"`       | `"gpt-35-turbo-1106"`       |
-| `"gpt-3.5-turbo-0125"`       | `"gpt-35-turbo-0125"`       |
-| `"gpt-3.5-turbo-16k"`        | `"gpt-35-turbo-16k-0613"`   |
-| `"gpt-3.5-turbo-16k-0613"`   | `"gpt-35-turbo-16k-0613"`   |
-| `"gpt-3.5-turbo-instruct"`   | `"gpt-35-turbo-instruct-0914"` |
-| `"gpt-3.5-turbo-instruct-0914"` | `"gpt-35-turbo-instruct-0914"` |
+| `"gpt-3.5-turbo-16k"`        | `"gpt-35-turbo-16k-0613"`    |
+
+### Phi Models (Azure Foundry)
+| OpenAI Model                 | Azure OpenAI Model           |
+| :--------------------------- | :--------------------------- |
+| `"phi-3"`                    | `"phi-3"`                    |
+| `"phi-3-mini"`               | `"phi-3-mini"`               |
+| `"phi-3-small"`              | `"phi-3-small"`              |
+| `"phi-3-medium"`             | `"phi-3-medium"`             |
+| `"phi-4"`                    | `"phi-4"`                    |
+
+### Other Models
+| OpenAI Model                 | Azure OpenAI Model           |
+| :--------------------------- | :--------------------------- |
 | `"text-embedding-3-small"`   | `"text-embedding-3-small-1"` |
 | `"text-embedding-3-large"`   | `"text-embedding-3-large-1"` |
-| `"text-embedding-ada-002"`   | `"text-embedding-ada-002-2"` |
-| `"text-embedding-ada-002-1"` | `"text-embedding-ada-002-1"` |
-| `"text-embedding-ada-002-2"` | `"text-embedding-ada-002-2"` |
-| `"dall-e-2"`                | `"dall-e-2-2.0"`             |
-| `"dall-e-2-2.0"`            | `"dall-e-2-2.0"`             |
-| `"dall-e-3"`                | `"dall-e-3-3.0"`             |
-| `"dall-e-3-3.0"`            | `"dall-e-3-3.0"`             |
-| `"babbage-002"`              | `"babbage-002-1"`           |
-| `"babbage-002-1"`            | `"babbage-002-1"`           |
-| `"davinci-002"`              | `"davinci-002-1"`           |
-| `"davinci-002-1"`            | `"davinci-002-1"`           |
+| `"dall-e-2"`                 | `"dall-e-2-2.0"`             |
+| `"dall-e-3"`                 | `"dall-e-3-3.0"`             |
 | `"tts"`                      | `"tts-001"`                  |
-| `"tts-001"`                  | `"tts-001"`                  |
 | `"tts-hd"`                   | `"tts-hd-001"`               |
-| `"tts-hd-001"`               | `"tts-hd-001"`               |
 | `"whisper"`                  | `"whisper-001"`              |
-| `"whisper-001"`              | `"whisper-001"`              |
 
 For custom fine-tuned models, the model name can be passed directly. For models with deployment names different from the model names, custom mapping relationships can be defined, such as:
 
@@ -311,6 +350,7 @@ When using reasoning models, you get access to:
 -   Some reasoning models may have usage limits or require special access permissions.
 
 ## Recently Updated
+-   **2025-12-14** Added comprehensive Azure AI Foundry support including Claude models (3.5-sonnet, 3-opus, 3-sonnet, 3-haiku), Phi models (phi-3, phi-4), complete O-series reasoning models (o1, o3, o4 variants). Updated API versions to 2025-04-01-preview (general) and 2025-01-01-preview (Responses API).
 -   **2025-08-03 (v1.0.8)** Added comprehensive support for Azure OpenAI Responses API with automatic reasoning model detection and streaming conversion.
 -   2025-01-24 Added support for Azure OpenAI API version 2024-12-01-preview and new model fetching mechanism.
 -   2024-07-25 Implemented support for Azure AI Studio deployments with support for Meta LLama 3.1, Mistral-2407 (mistral large 2), and other open models including from Cohere AI.

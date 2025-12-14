@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	AzureOpenAIAPIVersion          = "2025-04-01-preview" // API version for proxying requests
+	AzureOpenAIAPIVersion          = "2025-04-01-preview" // API version for proxying requests - supports latest Azure Foundry features
 	AzureOpenAIModelsAPIVersion    = "2024-10-21"         // API version for fetching models
-	AzureOpenAIResponsesAPIVersion = "preview"            // API version for Responses API
+	AzureOpenAIResponsesAPIVersion = "2025-01-01-preview" // API version for Responses API - updated for O-series support
 	AzureOpenAIEndpoint            = ""
 	ServerlessDeploymentInfo       = make(map[string]ServerlessDeployment)
 	AzureOpenAIModelMapper         = make(map[string]string)
@@ -37,6 +37,9 @@ func init() {
 	}
 	if v := os.Getenv("AZURE_OPENAI_MODELS_APIVERSION"); v != "" {
 		AzureOpenAIModelsAPIVersion = v
+	}
+	if v := os.Getenv("AZURE_OPENAI_RESPONSES_APIVERSION"); v != "" {
+		AzureOpenAIResponsesAPIVersion = v
 	}
 	if v := os.Getenv("AZURE_OPENAI_ENDPOINT"); v != "" {
 		AzureOpenAIEndpoint = v
@@ -60,21 +63,49 @@ func init() {
 
 	// Initialize AzureOpenAIModelMapper with updated model list and hardcode as failsafe
 	AzureOpenAIModelMapper = map[string]string{
+		// O-series reasoning models
+		"o1":                          "o1",
 		"o1-preview":                  "o1-preview",
+		"o1-mini":                     "o1-mini",
 		"o1-mini-2024-09-12":          "o1-mini-2024-09-12",
+		"o3":                          "o3",
+		"o3-mini":                     "o3-mini",
+		"o3-pro":                      "o3-pro",
+		"o3-pro-2025-06-10":           "o3-pro-2025-06-10",
+		"o4":                          "o4",
+		"o4-mini":                     "o4-mini",
+		// Claude models (Azure Foundry)
+		"claude-3-5-sonnet":           "claude-3-5-sonnet",
+		"claude-3.5-sonnet":           "claude-3-5-sonnet",
+		"claude-3-5-sonnet-20241022":  "claude-3-5-sonnet-20241022",
+		"claude-3.5-sonnet-20241022":  "claude-3-5-sonnet-20241022",
+		"claude-3-opus":               "claude-3-opus",
+		"claude-3.0-opus":             "claude-3-opus",
+		"claude-3-opus-20240229":      "claude-3-opus-20240229",
+		"claude-3-sonnet":             "claude-3-sonnet",
+		"claude-3.0-sonnet":           "claude-3-sonnet",
+		"claude-3-sonnet-20240229":    "claude-3-sonnet-20240229",
+		"claude-3-haiku":              "claude-3-haiku",
+		"claude-3.0-haiku":            "claude-3-haiku",
+		"claude-3-haiku-20240307":     "claude-3-haiku-20240307",
+		// GPT-4o models
 		"gpt-4o":                      "gpt-4o",
 		"gpt-4o-2024-05-13":           "gpt-4o-2024-05-13",
 		"gpt-4o-2024-08-06":           "gpt-4o-2024-08-06",
+		"gpt-4o-2024-11-20":           "gpt-4o-2024-11-20",
 		"gpt-4o-mini":                 "gpt-4o-mini",
 		"gpt-4o-mini-2024-07-18":      "gpt-4o-mini-2024-07-18",
+		// GPT-4 models
 		"gpt-4":                       "gpt-4-0613",
 		"gpt-4-0613":                  "gpt-4-0613",
 		"gpt-4-1106-preview":          "gpt-4-1106-preview",
 		"gpt-4-0125-preview":          "gpt-4-0125-preview",
 		"gpt-4-vision-preview":        "gpt-4-vision-preview",
+		"gpt-4-turbo":                 "gpt-4-turbo",
 		"gpt-4-turbo-2024-04-09":      "gpt-4-turbo-2024-04-09",
 		"gpt-4-32k":                   "gpt-4-32k-0613",
 		"gpt-4-32k-0613":              "gpt-4-32k-0613",
+		// GPT-3.5 models
 		"gpt-3.5-turbo":               "gpt-35-turbo-0613",
 		"gpt-3.5-turbo-0301":          "gpt-35-turbo-0301",
 		"gpt-3.5-turbo-0613":          "gpt-35-turbo-0613",
@@ -84,31 +115,43 @@ func init() {
 		"gpt-3.5-turbo-16k-0613":      "gpt-35-turbo-16k-0613",
 		"gpt-3.5-turbo-instruct":      "gpt-35-turbo-instruct-0914",
 		"gpt-3.5-turbo-instruct-0914": "gpt-35-turbo-instruct-0914",
+		// Embedding models
 		"text-embedding-3-small":      "text-embedding-3-small-1",
 		"text-embedding-3-large":      "text-embedding-3-large-1",
 		"text-embedding-ada-002":      "text-embedding-ada-002-2",
 		"text-embedding-ada-002-1":    "text-embedding-ada-002-1",
 		"text-embedding-ada-002-2":    "text-embedding-ada-002-2",
+		// DALL-E models
 		"dall-e-2":                    "dall-e-2-2.0",
 		"dall-e-2-2.0":                "dall-e-2-2.0",
 		"dall-e-3":                    "dall-e-3-3.0",
 		"dall-e-3-3.0":                "dall-e-3-3.0",
+		// Legacy models
 		"babbage-002":                 "babbage-002-1",
 		"babbage-002-1":               "babbage-002-1",
 		"davinci-002":                 "davinci-002-1",
 		"davinci-002-1":               "davinci-002-1",
+		// TTS models
 		"tts":                         "tts-001",
 		"tts-001":                     "tts-001",
 		"tts-hd":                      "tts-hd-001",
 		"tts-hd-001":                  "tts-hd-001",
+		// Whisper models
 		"whisper":                     "whisper-001",
 		"whisper-001":                 "whisper-001",
+		// Phi models (Azure Foundry)
+		"phi-3":                       "phi-3",
+		"phi-3-mini":                  "phi-3-mini",
+		"phi-3-small":                 "phi-3-small",
+		"phi-3-medium":                "phi-3-medium",
+		"phi-4":                       "phi-4",
 	}
 
 	log.Printf("Loaded ServerlessDeploymentInfo: %+v", ServerlessDeploymentInfo)
 	log.Printf("Azure OpenAI Endpoint: %s", AzureOpenAIEndpoint)
 	log.Printf("Azure OpenAI API Version: %s", AzureOpenAIAPIVersion)
 	log.Printf("Azure OpenAI Models API Version: %s", AzureOpenAIModelsAPIVersion)
+	log.Printf("Azure OpenAI Responses API Version: %s", AzureOpenAIResponsesAPIVersion)
 }
 
 func NewOpenAIReverseProxy() *httputil.ReverseProxy {
@@ -358,8 +401,14 @@ func modifyResponse(res *http.Response) error {
 func shouldUseResponsesAPI(model string) bool {
 	modelLower := strings.ToLower(model)
 	// Models that should use Responses API instead of chat completions
+	// These are primarily reasoning models (O-series)
 	responsesModels := []string{
-		"o3-pro", "codex-mini", "codex-mini-2025-05-16",
+		// O-series reasoning models
+		"o1", "o1-preview", "o1-mini",
+		"o3", "o3-mini", "o3-pro",
+		"o4", "o4-mini",
+		// Codex models (if any)
+		"codex-mini",
 	}
 
 	for _, m := range responsesModels {
