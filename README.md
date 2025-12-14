@@ -82,7 +82,10 @@ The proxy automatically detects model capabilities and routes requests appropria
 - **GPT-4o series**: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, etc.
 - **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k, etc.
 - **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k, etc.
-- **Claude series** (Azure Foundry): claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1
+- **Claude series** (Azure Foundry - Chat Completions API): claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1
+  - ⚠️ **Note**: Claude models must be deployed in your Azure Foundry account first
+  - Claude uses **Chat Completions API** (NOT Responses API)
+  - Deployment name must match your Azure deployment (e.g., use `AZURE_OPENAI_MODEL_MAPPER` if needed)
 - **Phi series** (Azure Foundry): phi-3, phi-3-mini, phi-3-small, phi-3-medium, phi-4
 - **Open Source Models**: Mistral, Llama, gpt-oss-120b, gpt-oss-20b (via serverless/managed deployments)
 
@@ -219,6 +222,14 @@ curl http://localhost:11437/v1/chat/completions \
 ```
 
 #### Claude Models (Azure Foundry)
+
+⚠️ **Important for Claude Models:**
+- Claude models must be **deployed in your Azure Foundry account** before use
+- They use the **Chat Completions API** (NOT the Responses API)
+- If you get "Unknown model" errors, your deployment name may differ from the standard name
+- Use `AZURE_OPENAI_MODEL_MAPPER` to map the model name to your actual deployment name
+
+**Example with standard deployment name:**
 ```sh
 curl http://localhost:11437/v1/chat/completions \
  -H "Content-Type: application/json" \
@@ -228,6 +239,12 @@ curl http://localhost:11437/v1/chat/completions \
   "messages": [{"role": "user", "content": "Explain quantum computing in simple terms"}],
   "max_tokens": 1000
  }'
+```
+
+**Example with custom deployment name:**
+If your Claude deployment has a different name (e.g., `Claude-Sonnet-45-20251001`), use the model mapper:
+```bash
+AZURE_OPENAI_MODEL_MAPPER=claude-sonnet-4.5=Claude-Sonnet-45-20251001
 ```
 
 #### Phi Models (Azure Foundry)
@@ -368,6 +385,36 @@ When using reasoning models, you get access to:
 -   Monitor your Azure OpenAI usage and costs, especially when using this proxy in high-traffic scenarios.
 -   Reasoning models may have higher latency due to their advanced processing capabilities.
 -   Some reasoning models may have usage limits or require special access permissions.
+
+## Troubleshooting
+
+### Claude Models
+
+**Error: "This model is not supported by Responses API"**
+- **Cause**: Claude models use the Chat Completions API, NOT the Responses API
+- **Solution**: Claude models should automatically use the correct API. If you see this error, check your deployment configuration
+- **Note**: The proxy correctly routes Claude to Chat Completions API by default
+
+**Error: "Unknown model: claude-sonnet-4-5" or similar**
+- **Cause**: The deployment name in Azure doesn't match the model name you're using
+- **Solution**: Use `AZURE_OPENAI_MODEL_MAPPER` to map the model name to your actual Azure deployment name:
+  ```bash
+  # If your deployment is named something like "Claude-Sonnet-45-20251001"
+  AZURE_OPENAI_MODEL_MAPPER=claude-sonnet-4.5=Claude-Sonnet-45-20251001
+  ```
+- **Tip**: Check your Azure Foundry portal to see the exact deployment name
+
+**Deployment Requirements**:
+1. Claude models must be deployed in your Azure Foundry account (East US2 or Sweden Central)
+2. They require Global Standard deployment
+3. The deployment name must be configured correctly in the proxy
+
+### General 404 Errors
+
+**Error: "Resource not found" (404)**
+- **Check deployment exists**: Verify the model is deployed in your Azure account
+- **Check deployment name**: Use the detailed logging to see what deployment name is being used
+- **Use model mapper**: Map model names to your actual deployment names if they differ
 
 ## Recently Updated
 -   **2025-12-14** Added comprehensive Azure OpenAI in Microsoft Foundry support including:
