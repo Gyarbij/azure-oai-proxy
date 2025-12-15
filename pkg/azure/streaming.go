@@ -33,6 +33,13 @@ func (c *StreamingResponseConverter) Convert() error {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		// Empty line resets event context
+		if line == "" {
+			eventType = ""
+			continue
+		}
 
 		if strings.HasPrefix(line, "event:") {
 			eventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
@@ -41,6 +48,11 @@ func (c *StreamingResponseConverter) Convert() error {
 
 		if strings.HasPrefix(line, "data:") {
 			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+
+			// Skip if no event type or empty data
+			if eventType == "" || data == "" {
+				continue
+			}
 
 			switch eventType {
 			case "response.output_text.delta":
@@ -54,17 +66,19 @@ func (c *StreamingResponseConverter) Convert() error {
 				"response.content_part.done", "response.output_text.done":
 				// These events don't need to be converted for chat completion streaming
 				continue
+			default:
+				log.Printf("Unhandled Responses API event type: %s", eventType)
 			}
-		}
-
-		// Empty line (event separator)
-		if line == "" {
-			eventType = ""
-			continue
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		log.Printf("Responses stream scanner error: %v", err)
+		return err
+	}
+
+	log.Printf("Responses stream ended without completion event for model: %s", c.model)
+	return nil
 }
 
 func (c *StreamingResponseConverter) handleTextDelta(data string) {
@@ -171,6 +185,13 @@ func (c *AnthropicStreamingConverter) Convert() error {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		// Empty line resets event context
+		if line == "" {
+			eventType = ""
+			continue
+		}
 
 		// Parse event type
 		if strings.HasPrefix(line, "event:") {
@@ -182,8 +203,8 @@ func (c *AnthropicStreamingConverter) Convert() error {
 		if strings.HasPrefix(line, "data:") {
 			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 
-			// Skip empty data or ping events
-			if data == "" || data == "{\"type\": \"ping\"}" {
+			// Skip if no event type or empty/ping data
+			if eventType == "" || data == "" || data == "{\"type\": \"ping\"}" {
 				continue
 			}
 
@@ -205,19 +226,14 @@ func (c *AnthropicStreamingConverter) Convert() error {
 				log.Printf("Unhandled Anthropic event type: %s", eventType)
 			}
 		}
-
-		// Empty line (event separator)
-		if line == "" {
-			eventType = ""
-			continue
-		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("Scanner error: %v", err)
+		log.Printf("Anthropic stream scanner error: %v", err)
 		return err
 	}
 
+	log.Printf("Anthropic stream ended without stop event for model: %s", c.model)
 	return nil
 }
 
