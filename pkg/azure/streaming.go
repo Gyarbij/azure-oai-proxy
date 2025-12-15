@@ -46,6 +46,7 @@ func (c *StreamingResponseConverter) Convert() error {
 			case "response.output_text.delta":
 				c.handleTextDelta(data)
 			case "response.completed":
+				log.Printf("Responses stream completed for model: %s", c.model)
 				c.handleCompleted(data)
 				return nil
 			case "response.created", "response.in_progress", "response.output_item.added",
@@ -58,6 +59,7 @@ func (c *StreamingResponseConverter) Convert() error {
 
 		// Empty line (event separator)
 		if line == "" {
+			eventType = ""
 			continue
 		}
 	}
@@ -193,6 +195,7 @@ func (c *AnthropicStreamingConverter) Convert() error {
 			case "message_delta":
 				c.handleMessageDelta(data, messageID)
 			case "message_stop":
+				log.Printf("Anthropic stream completed for model: %s", c.model)
 				c.handleMessageStop(messageID)
 				return nil
 			case "content_block_start", "content_block_stop", "ping":
