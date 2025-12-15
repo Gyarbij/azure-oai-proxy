@@ -48,3 +48,67 @@ Temporary Items
 *.env
 .env.local
 .env.*.local
+
+# Editor/Workspace
+.vscode/
+*.code-workspace
+.devcontainer/
+.history/
+.vs/
+.fleet/
+
+# Azure local configs (may contain secrets)
+.azure/
+local.settings.json
+
+# Secrets and certificates (private material)
+.secrets/
+secrets/
+.certs/
+certs/
+*.pem
+*.key
+*.p12
+*.pfx
+*.gpg
+*.asc
+
+# Direnv and envrc variants
+.envrc
+.envrc.*
+.envrc.local
+
+# Logs and temp files
+logs/
+log/
+*.log
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# Windows-specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Go build outputs and profiles
+bin/
+build/
+dist/
+coverage/
+*.cover
+*.coverprofile
+*.pprof
+*.prof
+
+# Docker overrides (local-only)
+docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
+compose.override.yaml
+
+# Sublime/other editor files
+*.sublime-workspace
+*.sublime-project
