@@ -48,6 +48,7 @@ Temporary Items
 *.env
 .env.local
 .env.*.local
+!example.env
 
 # Editor/Workspace
 .vscode/

@@ -519,7 +519,7 @@ func sanitizeHeaders(headers http.Header) http.Header {
 
 func modifyResponse(res *http.Response) error {
 	// Check if this is a streaming response that needs conversion
-	if res.Header.Get("Content-Type") == "text/event-stream" {
+	if strings.HasPrefix(res.Header.Get("Content-Type"), "text/event-stream") {
 		res.Header.Set("X-Accel-Buffering", "no")
 		res.Header.Set("Cache-Control", "no-cache")
 		res.Header.Set("Connection", "keep-alive")
@@ -822,7 +822,7 @@ func convertResponsesToChatCompletion(res *http.Response) {
 	}
 
 	// Check if it's a streaming response
-	if res.Header.Get("Content-Type") == "text/event-stream" {
+	if strings.HasPrefix(res.Header.Get("Content-Type"), "text/event-stream") {
 		// For streaming, we need to handle it differently
 		res.Body = io.NopCloser(bytes.NewBuffer(body))
 		return
