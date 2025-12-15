@@ -47,6 +47,7 @@ func (c *StreamingResponseConverter) Convert() error {
 				c.handleTextDelta(data)
 			case "response.completed":
 				c.handleCompleted(data)
+				return nil
 			case "response.created", "response.in_progress", "response.output_item.added",
 				"response.output_item.done", "response.content_part.added",
 				"response.content_part.done", "response.output_text.done":
@@ -193,6 +194,7 @@ func (c *AnthropicStreamingConverter) Convert() error {
 				c.handleMessageDelta(data, messageID)
 			case "message_stop":
 				c.handleMessageStop(messageID)
+				return nil
 			case "content_block_start", "content_block_stop", "ping":
 				// These events don't need conversion
 				continue
