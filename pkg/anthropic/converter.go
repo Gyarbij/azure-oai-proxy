@@ -26,37 +26,45 @@ import (
 func ConvertOpenAIToAnthropic(openAIRequest map[string]interface{}) (*MessagesRequest, error) {
 	req := &MessagesRequest{
 		MaxTokens: 1000, // Default
+		Messages:  make([]Message, 0),
 	}
 
-	// Extract model
 	if model, ok := openAIRequest["model"].(string); ok {
 		req.Model = model
 	}
 
-	// Extract messages
-	if messagesRaw, ok := openAIRequest["messages"].([]interface{}); ok {
-		for _, msgRaw := range messagesRaw {
-			if msgMap, ok := msgRaw.(map[string]interface{}); ok {
-				role := msgMap["role"].(string)
-				content := msgMap["content"].(string)
+	if rawMessages, exists := openAIRequest["messages"]; exists {
+		req.Messages = append(req.Messages, normalizeMessages(rawMessages, &req.System)...)
+	}
 
-				if role == "system" {
-					// Anthropic uses separate system parameter
-					req.System = content
-				} else {
-					// Convert user/assistant messages
-					req.Messages = append(req.Messages, Message{
-						Role:    role,
-						Content: content,
-					})
+	if len(req.Messages) == 0 {
+		if input, exists := openAIRequest["input"]; exists {
+			converted := normalizeMessages(input, &req.System)
+			if len(converted) == 0 {
+				if text := extractMessageContent(input); text != "" {
+					converted = append(converted, Message{Role: "user", Content: text})
 				}
 			}
+			req.Messages = append(req.Messages, converted...)
 		}
 	}
 
-	// Extract optional parameters
+	if len(req.Messages) == 0 {
+		if prompt, ok := openAIRequest["prompt"].(string); ok && strings.TrimSpace(prompt) != "" {
+			req.Messages = append(req.Messages, Message{Role: "user", Content: prompt})
+		}
+	}
+
 	if temp, ok := openAIRequest["temperature"].(float64); ok {
 		req.Temperature = temp
+	}
+
+	if topP, ok := openAIRequest["top_p"].(float64); ok {
+		req.TopP = topP
+	}
+
+	if topK, ok := openAIRequest["top_k"].(float64); ok {
+		req.TopK = int(topK)
 	}
 
 	if maxTokens, ok := openAIRequest["max_tokens"].(float64); ok {
@@ -67,7 +75,137 @@ func ConvertOpenAIToAnthropic(openAIRequest map[string]interface{}) (*MessagesRe
 		req.Stream = stream
 	}
 
+	if stop, exists := openAIRequest["stop"]; exists {
+		req.StopSequences = append(req.StopSequences, normalizeStopSequences(stop)...)
+	}
+
+	if len(req.Messages) == 0 {
+		req.Messages = make([]Message, 0)
+	}
+
 	return req, nil
+}
+
+func normalizeMessages(source interface{}, system *string) []Message {
+	messages := make([]Message, 0)
+
+	switch typed := source.(type) {
+	case []interface{}:
+		for _, entry := range typed {
+			messages = append(messages, normalizeMessages(entry, system)...)
+		}
+	case map[string]interface{}:
+		role, _ := typed["role"].(string)
+		content := extractMessageContent(typed["content"])
+
+		if strings.EqualFold(role, "system") {
+			appendSystem(system, content)
+			return messages
+		}
+
+		if role == "" && content == "" {
+			return messages
+		}
+
+		if role == "" {
+			role = "user"
+		}
+
+		if trimmed := strings.TrimSpace(content); trimmed != "" {
+			messages = append(messages, Message{Role: role, Content: trimmed})
+		}
+	case string:
+		if trimmed := strings.TrimSpace(typed); trimmed != "" {
+			messages = append(messages, Message{Role: "user", Content: trimmed})
+		}
+	default:
+		if text := extractMessageContent(typed); text != "" {
+			messages = append(messages, Message{Role: "user", Content: text})
+		}
+	}
+
+	return messages
+}
+
+func extractMessageContent(raw interface{}) string {
+	switch value := raw.(type) {
+	case string:
+		return value
+	case []interface{}:
+		var builder strings.Builder
+		for _, part := range value {
+			piece := strings.TrimSpace(extractMessageContent(part))
+			if piece == "" {
+				continue
+			}
+			if builder.Len() > 0 {
+				builder.WriteString("\n")
+			}
+			builder.WriteString(piece)
+		}
+		return builder.String()
+	case map[string]interface{}:
+		if text, ok := value["text"].(string); ok {
+			return text
+		}
+		if text, ok := value["input_text"].(string); ok {
+			return text
+		}
+		if nested, exists := value["content"]; exists {
+			return extractMessageContent(nested)
+		}
+		if nested, ok := value["value"].(string); ok {
+			return nested
+		}
+		if nested, ok := value["message"].(map[string]interface{}); ok {
+			return extractMessageContent(nested)
+		}
+	case nil:
+		return ""
+	}
+
+	if raw == nil {
+		return ""
+	}
+
+	if marshaled, err := json.Marshal(raw); err == nil {
+		return string(marshaled)
+	}
+
+	return fmt.Sprintf("%v", raw)
+}
+
+func appendSystem(system *string, fragment string) {
+	trimmed := strings.TrimSpace(fragment)
+	if trimmed == "" {
+		return
+	}
+	if *system == "" {
+		*system = trimmed
+		return
+	}
+	*system = *system + "\n" + trimmed
+}
+
+func normalizeStopSequences(source interface{}) []string {
+	stops := make([]string, 0)
+
+	switch typed := source.(type) {
+	case string:
+		if trimmed := strings.TrimSpace(typed); trimmed != "" {
+			stops = append(stops, trimmed)
+		}
+	case []interface{}:
+		for _, entry := range typed {
+			if text, ok := entry.(string); ok {
+				if trimmed := strings.TrimSpace(text); trimmed != "" {
+					stops = append(stops, trimmed)
+				}
+			}
+		}
+	}
+
+	return stops
 }
 
 // ConvertAnthropicToOpenAI converts Anthropic Messages API response to OpenAI chat completion format
