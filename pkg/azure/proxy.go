@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gyarbij/azure-oai-proxy/pkg/anthropic"
 	"github.com/tidwall/gjson"
 )
 
@@ -327,9 +328,9 @@ func makeDirector() func(*http.Request) {
 		log.Printf("Model from request: %s", model)
 
 		// Check if this is a Claude model - use Anthropic Messages API
-		if isClaudeModel(model) && strings.HasPrefix(req.URL.Path, "/v1/chat/completions") {
+		if anthropic.IsClaudeModel(model) && strings.HasPrefix(req.URL.Path, "/v1/chat/completions") {
 			log.Printf("Model %s is a Claude model - converting to Anthropic Messages API format", model)
-			convertChatToAnthropicMessages(req, model)
+			convertChatToAnthropicMessagesNew(req, model)
 		}
 
 		// Check if this is a chat completion request for a model that should use Responses API
@@ -458,13 +459,22 @@ func handleRegularRequest(req *http.Request, deployment string) {
 	// Use the api-key from the original request for regular deployments
 	apiKey := req.Header.Get("api-key")
 	if apiKey == "" {
+		// Try Authorization header
+		authHeader := req.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			apiKey = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+	}
+
+	if apiKey == "" {
 		log.Printf("Warning: No api-key found in request headers for deployment: %s", deployment)
 	} else {
-		// For Anthropic Messages API, convert to Authorization Bearer header
+		// For Anthropic Messages API, use x-api-key header
 		if strings.Contains(req.URL.Path, "/anthropic/v1/messages") {
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+			req.Header.Set("x-api-key", apiKey)
 			req.Header.Del("api-key")
-			log.Printf("Anthropic API: Using Authorization Bearer header for deployment: %s", deployment)
+			req.Header.Del("Authorization")
+			log.Printf("Anthropic API: Using x-api-key header for deployment: %s", deployment)
 		} else {
 			log.Printf("API key found for deployment: %s", deployment)
 		}
@@ -541,23 +551,16 @@ func modifyResponse(res *http.Response) error {
 
 			// Determine which converter to use based on the endpoint
 			if strings.Contains(res.Request.URL.Path, "/anthropic/v1/messages") {
-				// Use Anthropic streaming converter
-				log.Printf("Using Anthropic streaming converter for model: %s", model)
+				// Use new Anthropic module streaming converter
+				log.Printf("Using new Anthropic streaming converter for model: %s", model)
 				log.Printf("Response Content-Type: %s, Status: %d", res.Header.Get("Content-Type"), res.StatusCode)
-
-				// Debug: Check if response body has data
-				testBuf := make([]byte, 100)
-				n, readErr := res.Body.Read(testBuf)
-				log.Printf("DEBUG: Read %d bytes from response body, err: %v, preview: %q", n, readErr, string(testBuf[:n]))
-
-				// Create a new reader that includes what we just read plus the rest
-				res.Body = io.NopCloser(io.MultiReader(bytes.NewReader(testBuf[:n]), res.Body))
 
 				go func() {
 					defer pw.Close()
 					defer res.Body.Close()
 
-					converter := NewAnthropicStreamingConverter(res.Body, pw, model)
+					// Use the anthropic module's StreamConverter
+					converter := anthropic.NewStreamConverter(res.Body, pw, model)
 					if err := converter.Convert(); err != nil {
 						log.Printf("Anthropic streaming conversion error: %v", err)
 					}
@@ -818,6 +821,37 @@ func convertChatToAnthropicMessages(req *http.Request, model string) {
 	}
 }
 
+// convertChatToAnthropicMessagesNew uses the new anthropic module for conversion
+func convertChatToAnthropicMessagesNew(req *http.Request, model string) {
+	if req.Body != nil {
+		body, _ := io.ReadAll(req.Body)
+		log.Printf("Original chat completion request for Claude: %s", string(body))
+
+		// Use the anthropic module to convert
+		anthropicBody, err := anthropic.CreateRequestBody(body)
+		if err != nil {
+			log.Printf("Error converting to Anthropic format: %v", err)
+			req.Body = io.NopCloser(bytes.NewBuffer(body))
+			return
+		}
+
+		log.Printf("Converted to Anthropic Messages API request: %s", string(anthropicBody))
+
+		req.Body = io.NopCloser(bytes.NewBuffer(anthropicBody))
+		req.ContentLength = int64(len(anthropicBody))
+
+		// Update the path to use Anthropic Messages API endpoint (will be converted to /anthropic/v1/messages by handleRegularRequest)
+		req.URL.Path = "/v1/anthropic/messages"
+		req.Header.Set("X-Original-Path", "/v1/chat/completions")
+		req.Header.Set("X-Model", model)
+		req.Header.Set("Content-Type", "application/json")
+
+		// Set Anthropic-specific headers
+		req.Header.Set("anthropic-version", AnthropicAPIVersion)
+		log.Printf("Set anthropic-version header: %s", AnthropicAPIVersion)
+	}
+}
+
 // convert Responses API response to chat completion format
 func convertResponsesToChatCompletion(res *http.Response) {
 	body, err := io.ReadAll(res.Body)
@@ -961,96 +995,16 @@ func convertAnthropicToChatCompletion(res *http.Response) {
 	// Log the raw response for debugging
 	log.Printf("Raw Anthropic Messages API response: %s", string(body))
 
-	var anthropicResponse map[string]interface{}
-	if err := json.Unmarshal(body, &anthropicResponse); err != nil {
-		log.Printf("Error unmarshaling Anthropic response: %v", err)
+	// Use the anthropic module to convert the response
+	openAIResponse, err := anthropic.ReadNonStreamingResponse(bytes.NewReader(body))
+	if err != nil {
+		log.Printf("Error converting Anthropic response: %v", err)
 		res.Body = io.NopCloser(bytes.NewBuffer(body))
 		return
 	}
 
-	// Check if there's an error
-	if errorData, ok := anthropicResponse["error"]; ok && errorData != nil {
-		log.Printf("Error in Anthropic response, passing through: %v", errorData)
-		res.Body = io.NopCloser(bytes.NewBuffer(body))
-		return
-	}
-
-	// Get model from request header
-	model := res.Request.Header.Get("X-Model")
-	if model == "" {
-		model = "claude-unknown"
-	}
-
-	// Extract content from Anthropic response
-	var content string
-	if contentArray, ok := anthropicResponse["content"].([]interface{}); ok && len(contentArray) > 0 {
-		if contentBlock, ok := contentArray[0].(map[string]interface{}); ok {
-			if text, ok := contentBlock["text"].(string); ok {
-				content = text
-			}
-		}
-	}
-
-	// Extract usage information
-	usage := map[string]interface{}{
-		"prompt_tokens":     0,
-		"completion_tokens": 0,
-		"total_tokens":      0,
-	}
-	if usageData, ok := anthropicResponse["usage"].(map[string]interface{}); ok {
-		if promptTokens, ok := usageData["input_tokens"]; ok {
-			usage["prompt_tokens"] = promptTokens
-		}
-		if completionTokens, ok := usageData["output_tokens"]; ok {
-			usage["completion_tokens"] = completionTokens
-		}
-		// Calculate total
-		promptInt := getInt64(usage["prompt_tokens"])
-		completionInt := getInt64(usage["completion_tokens"])
-		usage["total_tokens"] = promptInt + completionInt
-	}
-
-	// Get stop reason and map to OpenAI finish_reason
-	finishReason := "stop"
-	if stopReason, ok := anthropicResponse["stop_reason"].(string); ok {
-		switch stopReason {
-		case "end_turn":
-			finishReason = "stop"
-		case "max_tokens":
-			finishReason = "length"
-		case "stop_sequence":
-			finishReason = "stop"
-		default:
-			finishReason = "stop"
-		}
-	}
-
-	// Get current Unix timestamp for created field
-	created := time.Now().Unix()
-
-	// Create OpenAI chat completion format response
-	chatResponse := map[string]interface{}{
-		"id":      anthropicResponse["id"],
-		"object":  "chat.completion",
-		"created": created,
-		"model":   model,
-		"choices": []map[string]interface{}{
-			{
-				"index": 0,
-				"message": map[string]interface{}{
-					"role":    "assistant",
-					"content": content,
-				},
-				"finish_reason": finishReason,
-				"logprobs":      nil,
-			},
-		},
-		"usage":              usage,
-		"system_fingerprint": nil,
-	}
-
-	// Marshal and set as new body
-	newBody, _ := json.Marshal(chatResponse)
+	// Marshal the converted response
+	newBody, _ := json.Marshal(openAIResponse)
 	log.Printf("Converted Anthropic response to OpenAI format: %s", string(newBody))
 
 	res.Body = io.NopCloser(bytes.NewBuffer(newBody))

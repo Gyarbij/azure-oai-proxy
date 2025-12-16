@@ -6,22 +6,51 @@
 [![GHCR Build](https://shields.git.vg/github/actions/workflow/status/gyarbij/azure-oai-proxy/ghcr-docker-publish.yml)](https://github.com/gyarbij/azure-oai-proxy)
 [![License](https://shields.git.vg/github/license/Gyarbij/azure-oai-proxy?style=for-the-badge&color=blue)](https://github.com/gyarbij/azure-oai-proxy/blob/main/LICENSE)
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Key Features](#key-features)
+- [Use Cases](#use-cases)
+- [Supported APIs](#supported-apis)
+- [Model Support & API Routing](#model-support--api-routing)
+- [Configuration](#configuration)
+- [Usage](#usage)
+  - [Docker Compose](#docker-compose)
+  - [Usage Examples](#usage-examples)
+- [Model Mapping](#model-mapping-mechanism-used-for-custom-deployment-names)
+- [Reasoning Models & Responses API](#reasoning-models--responses-api)
+- [Troubleshooting](#troubleshooting)
+- [Documentation](#documentation)
+- [Recently Updated](#recently-updated)
+
+## Documentation
+
+- 📖 **[README.md](README.md)** - This file (getting started, usage, examples)
+- ⚡ **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference for Claude models (TL;DR version)
+- 🏗️ **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical documentation and architecture details
+- 🔄 **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Upgrading from older versions
+- 📋 **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
+- ⚙️ **[example.env](example.env)** - Configuration template
+
 ## Introduction
 
 Azure OAI Proxy is a lightweight, high-performance proxy server that enables seamless integration between Azure OpenAI Services and applications designed for OpenAI API only compatible endpoints. This project bridges the gap for tools and services that are built to work with OpenAI's API structure but need to utilize Azure's OpenAI services, including support for the latest reasoning models through Azure's Responses API.
 
+> 📘 **Upgrading from an older version?** See the [Migration Guide](MIGRATION_GUIDE.md) for important changes to Claude model support.
+
 ## Key Features
 
 -   ✅ **API Compatibility**: Translates requests from OpenAI API format to Azure OpenAI Services format on-the-fly.
+-   � **Native Anthropic Integration**: Full support for Claude models via Azure AI Foundry's Anthropic Messages API with automatic bidirectional format conversion.
 -   🧠 **Advanced Reasoning Model Support**: Full support for Azure's advanced reasoning models (O1, O3, O4 series) through automatic Responses API integration.
--   📡 **Streaming Support**: Real-time streaming for both traditional chat models and reasoning models with proper format conversion.
+-   📡 **Streaming Support**: Real-time streaming for chat, Claude (Anthropic SSE), and reasoning models with proper format conversion.
 -   🗺️ **Model Mapping**: Automatically maps OpenAI model names to Azure scheme, with a comprehensive failsafe list.
 -   🔄 **Dynamic Model List**: Fetches available models directly from your Azure OpenAI deployment using a dedicated API version.
--   🌐 **Support for Multiple Endpoints**: Handles various API endpoints including image, speech, completions, chat completions, embeddings, responses API, and more.
+-   🌐 **Support for Multiple Endpoints**: Handles various API endpoints including image, speech, completions, chat completions, embeddings, responses API, and Anthropic Messages API.
 -   🚦 **Error Handling**: Provides meaningful error messages and logging for easier debugging.
 -   ⚙️ **Configurable**: Easy to set up with environment variables for Azure AI/Azure OAI endpoint, API keys, and API versions.
 -   🔐 **Serverless Deployment Support**: Supports Azure AI serverless deployments with custom authentication.
--   🔀 **Automatic API Selection**: Intelligently routes requests to Chat Completions API or Responses API based on model capabilities.
+-   🔀 **Automatic API Selection**: Intelligently routes requests to Chat Completions API, Anthropic Messages API, or Responses API based on model type.
 
 ## Use Cases
 
@@ -82,10 +111,12 @@ The proxy automatically detects model capabilities and routes requests appropria
 - **GPT-4o series**: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, etc.
 - **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k, etc.
 - **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k, etc.
-- **Claude series** (Azure Foundry - Chat Completions API): claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5, claude-opus-4.1
-  - ⚠️ **Note**: Claude models must be deployed in your Azure Foundry account first
-  - Claude uses **Chat Completions API** (NOT Responses API)
-  - Deployment name must match your Azure deployment (e.g., use `AZURE_OPENAI_MODEL_MAPPER` if needed)
+- **Claude series** (Azure AI Foundry - Native Anthropic API): claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5
+  - ✅ **NEW**: Native Anthropic Messages API integration
+  - Automatically converts OpenAI format ↔ Anthropic format
+  - Full streaming support with proper SSE event handling
+  - Routes to `/anthropic/v1/messages` endpoint on Azure
+  - See [ARCHITECTURE.md](ARCHITECTURE.md) for details
 - **Phi series** (Azure Foundry): phi-3, phi-3-mini, phi-3-small, phi-3-medium, phi-4
 - **Open Source Models**: Mistral, Llama, gpt-oss-120b, gpt-oss-20b (via serverless/managed deployments)
 
@@ -314,7 +345,10 @@ These are the default mappings for the most common models, if your Azure OpenAI 
 | `"o4"`                       | `"o4"`                       |
 | `"o4-mini"`                  | `"o4-mini"`                  |
 
-### Claude Models (Azure Foundry)
+### Claude Models (Azure Foundry - Native Anthropic API)
+
+> 💡 **Note**: Claude models use **native Anthropic Messages API** integration, not Azure OpenAI format. The proxy automatically handles bidirectional conversion between OpenAI chat completions and Anthropic Messages API.
+
 | OpenAI Model                 | Azure OpenAI Model           |
 | :--------------------------- | :--------------------------- |
 | `"claude-opus-4.5"`          | `"claude-opus-4.5"`          |
@@ -325,6 +359,15 @@ These are the default mappings for the most common models, if your Azure OpenAI 
 | `"claude-haiku-4-5"`         | `"claude-haiku-4.5"`         |
 | `"claude-opus-4.1"`          | `"claude-opus-4.1"`          |
 | `"claude-opus-4-1"`          | `"claude-opus-4.1"`          |
+
+**How it works:**
+- Requests route to `/anthropic/v1/messages` (not `/openai/deployments/...`)
+- OpenAI format → Anthropic format conversion (automatic)
+- Anthropic SSE events → OpenAI streaming chunks (automatic)
+- System messages extracted to `system` parameter (automatic)
+- Headers adjusted (`x-api-key`, `anthropic-version`)
+
+For detailed architecture, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ### GPT Models
 | OpenAI Model                 | Azure OpenAI Model           |
