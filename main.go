@@ -217,13 +217,19 @@ func handleAzureProxy(c *gin.Context) {
 		handleOptions(c)
 		return
 	}
+
+	// Disable Gin's buffering for SSE responses
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
 	server := azure.NewOpenAIReverseProxy()
 	server.ServeHTTP(c.Writer, c.Request)
-	if c.Writer.Header().Get("Content-Type") == "text/event-stream" {
-		if _, err := c.Writer.Write([]byte("\n")); err != nil {
-			log.Printf("rewrite azure response error: %v", err)
-		}
+
+	// For SSE responses, ensure final flush
+	if strings.HasPrefix(c.Writer.Header().Get("Content-Type"), "text/event-stream") {
+		c.Writer.Flush()
+		log.Printf("Flushed SSE stream for Azure proxy")
 	}
+
 	// Enhanced error logging
 	if c.Writer.Status() >= 400 {
 		log.Printf("Azure API request failed: %s %s, Status: %d", c.Request.Method, c.Request.URL.Path, c.Writer.Status())

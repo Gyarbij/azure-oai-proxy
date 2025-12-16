@@ -284,6 +284,7 @@ func NewOpenAIReverseProxy() *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director:       makeDirector(),
 		ModifyResponse: modifyResponse,
+		FlushInterval:  -1, // Flush immediately for SSE streaming - critical for OpenWebUI compatibility
 	}
 }
 
