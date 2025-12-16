@@ -177,15 +177,22 @@ func NewAnthropicStreamingConverter(reader io.Reader, writer io.Writer, model st
 
 // Convert performs the Anthropic streaming conversion
 func (c *AnthropicStreamingConverter) Convert() error {
+	log.Printf("Anthropic converter started for model: %s", c.model)
 	scanner := bufio.NewScanner(c.reader)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024) // Increase buffer size for large events
 
 	var eventType string
 	var messageID string
+	lineCount := 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(line)
+		lineCount++
+
+		if lineCount <= 5 || lineCount%100 == 0 {
+			log.Printf("Anthropic converter line %d: %q", lineCount, line)
+		}
 
 		// Empty line resets event context
 		if line == "" {

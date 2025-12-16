@@ -519,6 +519,9 @@ func sanitizeHeaders(headers http.Header) http.Header {
 }
 
 func modifyResponse(res *http.Response) error {
+	log.Printf("modifyResponse called - Content-Type: %s, Status: %d, Path: %s",
+		res.Header.Get("Content-Type"), res.StatusCode, res.Request.URL.Path)
+
 	// Check if this is a streaming response that needs conversion
 	if strings.HasPrefix(res.Header.Get("Content-Type"), "text/event-stream") {
 		res.Header.Set("X-Accel-Buffering", "no")
@@ -540,6 +543,7 @@ func modifyResponse(res *http.Response) error {
 			if strings.Contains(res.Request.URL.Path, "/anthropic/v1/messages") {
 				// Use Anthropic streaming converter
 				log.Printf("Using Anthropic streaming converter for model: %s", model)
+				log.Printf("Response Content-Type: %s, Status: %d", res.Header.Get("Content-Type"), res.StatusCode)
 				go func() {
 					defer pw.Close()
 					defer res.Body.Close()
@@ -548,6 +552,7 @@ func modifyResponse(res *http.Response) error {
 					if err := converter.Convert(); err != nil {
 						log.Printf("Anthropic streaming conversion error: %v", err)
 					}
+					log.Printf("Anthropic streaming converter goroutine completed for model: %s", model)
 				}()
 			} else {
 				// Use Responses API streaming converter
