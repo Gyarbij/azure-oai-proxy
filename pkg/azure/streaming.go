@@ -2,6 +2,7 @@ package azure
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -178,6 +179,15 @@ func NewAnthropicStreamingConverter(reader io.Reader, writer io.Writer, model st
 // Convert performs the Anthropic streaming conversion
 func (c *AnthropicStreamingConverter) Convert() error {
 	log.Printf("Anthropic converter started for model: %s", c.model)
+
+	// Debug: Try reading first byte to ensure data is flowing
+	testByte := make([]byte, 1)
+	n, err := c.reader.Read(testByte)
+	log.Printf("DEBUG converter: Read %d bytes, err: %v, byte: %q", n, err, string(testByte[:n]))
+
+	// Reconstruct reader with the test byte
+	c.reader = io.MultiReader(bytes.NewReader(testByte[:n]), c.reader)
+
 	scanner := bufio.NewScanner(c.reader)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024) // Increase buffer size for large events
 
@@ -185,14 +195,13 @@ func (c *AnthropicStreamingConverter) Convert() error {
 	var messageID string
 	lineCount := 0
 
+	log.Printf("Starting scanner loop for model: %s", c.model)
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(line)
 		lineCount++
 
-		if lineCount <= 5 || lineCount%100 == 0 {
-			log.Printf("Anthropic converter line %d: %q", lineCount, line)
-		}
+		log.Printf("Anthropic converter line %d: %q", lineCount, line)
 
 		// Empty line resets event context
 		if line == "" {
