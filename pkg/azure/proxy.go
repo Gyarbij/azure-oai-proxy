@@ -544,6 +544,15 @@ func modifyResponse(res *http.Response) error {
 				// Use Anthropic streaming converter
 				log.Printf("Using Anthropic streaming converter for model: %s", model)
 				log.Printf("Response Content-Type: %s, Status: %d", res.Header.Get("Content-Type"), res.StatusCode)
+
+				// Debug: Check if response body has data
+				testBuf := make([]byte, 100)
+				n, readErr := res.Body.Read(testBuf)
+				log.Printf("DEBUG: Read %d bytes from response body, err: %v, preview: %q", n, readErr, string(testBuf[:n]))
+
+				// Create a new reader that includes what we just read plus the rest
+				res.Body = io.NopCloser(io.MultiReader(bytes.NewReader(testBuf[:n]), res.Body))
+
 				go func() {
 					defer pw.Close()
 					defer res.Body.Close()
