@@ -1,6 +1,10 @@
 package anthropic
 
-import "testing"
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
 
 func TestConvertOpenAIToAnthropicMessagesArray(t *testing.T) {
 	payload := map[string]interface{}{
@@ -73,5 +77,37 @@ func TestConvertOpenAIToAnthropicInputOnly(t *testing.T) {
 
 	if len(req.StopSequences) != 1 || req.StopSequences[0] != "STOP" {
 		t.Fatalf("unexpected stop sequences: %#v", req.StopSequences)
+	}
+}
+
+func TestStreamConverterProducesOpenAIChunks(t *testing.T) {
+	sse := strings.Join([]string{
+		"event: message_start",
+		"data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_test\",\"model\":\"claude-sonnet-4-5\",\"type\":\"message\",\"role\":\"assistant\"}}",
+		"",
+		"event: content_block_delta",
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}",
+		"",
+		"event: message_stop",
+		"data: {\"type\":\"message_stop\"}",
+		"",
+	}, "\n")
+
+	reader := strings.NewReader(sse)
+	var out bytes.Buffer
+	converter := NewStreamConverter(reader, &out, "claude-sonnet-4-5")
+	if err := converter.Convert(); err != nil {
+		t.Fatalf("Stream conversion failed: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "\"choices\"") {
+		t.Fatalf("expected OpenAI-style chunk, got: %s", output)
+	}
+	if !strings.Contains(output, "Hello") {
+		t.Fatalf("expected converted content, got: %s", output)
+	}
+	if !strings.Contains(output, "data: [DONE]") {
+		t.Fatalf("expected DONE sentinel, got: %s", output)
 	}
 }

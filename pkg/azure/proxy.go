@@ -537,6 +537,13 @@ func modifyResponse(res *http.Response) error {
 		res.Header.Set("X-Accel-Buffering", "no")
 		res.Header.Set("Cache-Control", "no-cache")
 		res.Header.Set("Connection", "keep-alive")
+		res.Header.Set("Content-Type", "text/event-stream; charset=utf-8")
+		res.Header.Del("Content-Length")
+		res.Header.Del("Content-Encoding")
+		res.ContentLength = -1
+		if len(res.TransferEncoding) == 0 {
+			res.TransferEncoding = []string{"chunked"}
+		}
 
 		// Check if this needs streaming conversion
 		if origPath := res.Request.Header.Get("X-Original-Path"); origPath == "/v1/chat/completions" {
